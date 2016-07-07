@@ -68,7 +68,7 @@ get_password() {
   uun=${1}
   logger "$0: Asking for password"
   logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
-  pwd=$(sudo -u ${logged_in_user} osascript << EOF
+  pwd="$(sudo -u ${logged_in_user} osascript << EOF
   tell application "Finder"
       activate
       with timeout of 36000 seconds
@@ -79,8 +79,8 @@ get_password() {
   end tell
   return the_answer
   EOF
-     )
-  until  [ $? != 0 ] || $(valid_password ${uun} ${pwd}) 
+     )"
+  until  [ $? != 0 ] || $(valid_password ${uun} "${pwd}") 
   do
     get_password ${uun} 
   done
@@ -104,8 +104,8 @@ valid_username() {
 valid_password() {
   # Determine the user has typed the correct password
   # Uses expect to avoid passing a password on the commandline
-  uun=${1}
-  pwd=${2}
+  uun="${1}"
+  pwd="${2}"
 
 
   result=$(/usr/bin/expect -f - << EOT
