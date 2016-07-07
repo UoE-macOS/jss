@@ -26,6 +26,7 @@ check_jss_available() {
   fi
 } 
 
+
 get_fullname() {
    logger "$0: Looking for user fullname"
    full_name=$(ldapsearch -x -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
@@ -48,7 +49,8 @@ get_username() {
   tell application "Finder"
       activate
       set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer.\n\nAn account will be created on this computer if it does not exist:"¬
-      with title "University of Edinburgh Mac Supported Desktop" default answer "")
+      with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
+      buttons {"OK"} default button {"OK"})
   end tell
   return uun
   EOF
@@ -67,29 +69,32 @@ get_password() {
   pwd=$(sudo -u ${logged_in_user} osascript << EOF
   tell application "Finder"
       activate
-      set pwd to text returned of (display dialog "Please enter the password for that username"¬
-      with title "University of Edinburgh Mac Supported Desktop" default answer "" with hidden answer)
+      set the_result to (display dialog "Please enter the password for that username"¬
+          with title "University of Edinburgh Mac Supported Desktop" default answer "" with hidden answer)
+      set the_answer to text returned of the_result
   end tell
-  return pwd
+  return the_answer
   EOF
      )
-  until $(valid_password ${uun} ${pwd})
+  until  [ $? != 0 ] || $(valid_password ${uun} ${pwd}) 
   do
     get_password ${uun} 
   done
-  echo ${pwd}
+
+  if [ -z "${pwd}" ]
+  then
+    false
+  else
+    echo "${pwd}"
+  fi
 }
 
 valid_username() {
   # Determine validity of a username by checking whether we can find the school code.
   uun=${1}
   logger "$0: Checking validity of username"
-  if [ ! -z "$(get_school ${1})" ]
-  then
-    true
-  else
-    false
-  fi
+
+  [ ! -z "$(get_school ${1})" ]
 }
   
 valid_password() {
@@ -186,10 +191,10 @@ has_local_account() {
   if acct=$(dscl . -list /Users | grep "^${uun}$")
   then
     logger "$0: Local Account for ${uun} exists"
-    echo 0 
+    true 
   else
-    echo 1
     logger "$0: Local Account for ${uun} does not exist"
+    false
   fi
 }
 
@@ -197,7 +202,11 @@ has_local_account() {
 create_local_account() {
   logger "$0: Creating local account for ${uun}"
   uun="${1}"
-  pwd="$(get_password ${uun})" 
+  pwd="$(get_password ${uun})"
+  if [ -z "${pwd}" ]
+  then
+       return 255
+  fi
   dscl . -create /Users/${uun}
   dscl . -create /Users/${uun} UserShell /bin/bash
   dscl . -create /Users/${uun} RealName "$(get_fullname ${uun})"
@@ -207,20 +216,79 @@ create_local_account() {
   
   logger "$0: Setting password for ${uun}"
   # Avoid passing the password on the commandline 
-  /usr/bin/expect -f - << EOT
+  result=$(/usr/bin/expect -f - << EOT
 
-  spawn dscl . -passwd /Users/${uun}
+  log_user 0
+  spawn -noecho dscl . -passwd /Users/${uun}
 
   expect "New Password:*"
 
   send -- "${pwd}" 
   send -- "\r"
-  expect eof
+  expect {
+    "*DS Error:*" {
+      send_user "Fail"
+      exit
+     }
+    
+     eof {
+      send_user "Success"
+      exit
+     }
+  }   
 EOT
+	)
+  # Return a failure if we failed to set the password
+  if [ "${result}" == "Success" ]
+  then
+    return 0
+  else
+    return 255
+  fi
+  
 }
 
 update_jss() {
   /usr/local/bin/jamf recon -endUsername ${1}
+}
+
+warn_no_user_account() {
+  uun=${1}
+  logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
+  sudo -u ${logged_in_user} osascript << EOT
+   tell application "Finder"
+    activate
+    display dialog "Warning - local account creation failed for ${uun}\n\nYou will need to create one manually."¬      
+    buttons {"OK"} default button {"OK"}      
+    end tell
+EOT
+  
+}
+
+success_message() {
+  uun=${1}
+  logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
+  sudo -u ${logged_in_user} osascript << EOT
+    tell application "Finder"
+    activate
+    display dialog "A local user account has been created for ${uun}."¬
+    buttons {"OK"} default button {"OK"}           
+    end tell
+EOT
+  
+}
+
+success_message_existing_account() {
+  uun=${1}
+  logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
+  sudo -u ${logged_in_user} osascript << EOT
+    tell application "Finder"
+    activate
+    display dialog "We found a local account for ${uun}.\n\nIt has not been altered in any way."¬
+    buttons {"OK"} default button {"OK"}           
+    end tell
+EOT
+  
 }
 
 ### Execution starts here ###
@@ -230,9 +298,17 @@ uun=$(get_username)
 
 set_machine_name ${uun}
 
-if [ "$(has_local_account ${uun})" != "0" ]
+if ! $(has_local_account ${uun})
 then
   create_local_account ${uun}
+  if [ ${?} != 0 ]
+  then
+    warn_no_user_account ${uun}
+  else
+    success_message ${uun}
+  fi  
+else
+  success_message_existing_account ${uun}
 fi
 
 update_jss ${uun} 
