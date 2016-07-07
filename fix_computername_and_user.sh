@@ -48,9 +48,11 @@ get_username() {
   uun=$(sudo -u ${logged_in_user} osascript << EOF
   tell application "Finder"
       activate
-      set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer.\n\nAn account will be created on this computer if it does not exist:"¬
-      with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
-      buttons {"OK"} default button {"OK"})
+      with timeout of 36000 seconds
+        set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer.\n\nAn account will be created on this computer if it does not exist:"¬
+        with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
+        buttons {"OK"} default button {"OK"})
+      end timeout
   end tell
   return uun
   EOF
@@ -69,9 +71,11 @@ get_password() {
   pwd=$(sudo -u ${logged_in_user} osascript << EOF
   tell application "Finder"
       activate
-      set the_result to (display dialog "Please enter the password for that username"¬
+      with timeout of 36000 seconds
+        set the_result to (display dialog "Please enter the password for that username"¬
           with title "University of Edinburgh Mac Supported Desktop" default answer "" with hidden answer)
-      set the_answer to text returned of the_result
+        set the_answer to text returned of the_result
+      end timeout
   end tell
   return the_answer
   EOF
