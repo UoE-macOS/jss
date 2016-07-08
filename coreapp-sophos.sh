@@ -68,7 +68,7 @@ fix_autoupdate_plist() {
 	<integer>2</integer>
 </dict>
 </plist>
- EOF
+EOF
 }
     
 # Check if Sophos has been previously installed
