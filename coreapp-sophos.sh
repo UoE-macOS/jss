@@ -117,9 +117,15 @@ chmod +x "${TEMP_DIR}/${INSTALL_PROGRAM}"
 if [ "$?" == 0 ]
 then
     logger "$0: Installed Sophos"
+
     fix_autoupdate_plist
+
     ## Clean up after ourselves
     rm -rf "${TEMP_DIR}"
+
+    ## Update Sophos
+    /usr/local/bin/SophosUpdate
+
     exit 0
 else
     logger "$0: Failed to install Sophos. Error Code: ${?}"
