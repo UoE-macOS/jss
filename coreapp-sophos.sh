@@ -5,6 +5,7 @@
 TEMP_DIR="/tmp/sophos"
 UPDATE_SERVER="$4"
 INSTALL_FILE="$5"
+INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
 
 # Create temporary work area if it doesn't exist
 [ ! -d "${TEMP_DIR}" ] && mkdir -p "${TEMP_DIR}"
@@ -41,8 +42,9 @@ cd "${TEMP_DIR}"
 unzip ${INSTALL_FILE} 
 
 # Install Sophos
-
-"${TEMP_DIR}/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer" --install
+# Inexplicably this ends up non-executable
+chmod +x "${TEMP_DIR}/${INSTALL_PROGRAM}"
+"${TEMP_DIR}/${INSTALL_PROGRAM}" --install
 
 if [ "$?" == 0 ]
 then
