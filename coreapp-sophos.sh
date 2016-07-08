@@ -14,7 +14,7 @@ INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer
 rm -rf "${TEMP_DIR}"/*
 
 # Check if Sophos has been previously installed
-if [ -f "/Applications/Sophos\ Anti-Virus.app" ]
+if [ -f "/Applications/Sophos\ Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
         version="$(defaults read /Applications/Sophos\ Anti-Virus.app/Contents/Info CFBundleShortVersionString | awk -F "." '{print $1}')"
         if [ $version == 9 ]
