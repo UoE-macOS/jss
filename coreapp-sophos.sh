@@ -69,6 +69,8 @@ fix_autoupdate_plist() {
 </dict>
 </plist>
 EOF
+    ## Kick the config demon so that it picks up settings
+    /usr/bin/killall -HUP SophosConfigD
 }
     
 # Check if Sophos has been previously installed
