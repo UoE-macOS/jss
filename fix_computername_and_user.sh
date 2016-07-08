@@ -256,6 +256,12 @@ update_jss() {
   /usr/local/bin/jamf recon -endUsername ${1}
 }
 
+trigger_core_apps() {
+  # trigger the 'core-apps' event which will kick off the
+  # installation of our core applications
+  /usr/local/bin/jamf policy -event core-apps
+}
+
 warn_no_user_account() {
   uun=${1}
   logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
@@ -296,7 +302,7 @@ EOT
 }
 
 ### Execution starts here ###
-#check_jss_available
+check_jss_available
 
 uun=$(get_username)
 
@@ -316,3 +322,5 @@ else
 fi
 
 update_jss ${uun} 
+
+trigger_core_apps
