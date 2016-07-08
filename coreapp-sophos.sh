@@ -36,7 +36,7 @@ fi
 # Download and install Sophos AV
 
 # Rather than try to keep up with Sophos upgrades, download the newest version from the local source
-/usr/bin/curl ${UPDATE_SERVER}/${INSTALL_FILE} > ${TEMP_DIR}/
+/usr/bin/curl ${UPDATE_SERVER}/${INSTALL_FILE} > ${TEMP_DIR}/${INSTALL_FILE}
 cd "${TEMP_DIR}"
 unzip ${INSTALL_FILE} 
 
