@@ -2,7 +2,7 @@
 
 ## Script to install Sophos Antivirus
 
-TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
+TEMP_DIR="/tmp/sophos"
 UPDATE_SERVER="$4"
 INSTALL_FILE="$5"
 
