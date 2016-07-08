@@ -2,9 +2,9 @@
 
 ## Script to install Sophos Antivirus
 
-$TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
-$UPDATE_SERVER="$4"
-$INSTALL_FILE="$5"
+TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
+UPDATE_SERVER="$4"
+INSTALL_FILE="$5"
 
 # Create temporary work area if it doesn't exist
 [ ! -d "${TEMP_DIR}" ] && mkdir -p "${TEMP_DIR}"
