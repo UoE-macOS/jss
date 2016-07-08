@@ -1,6 +1,11 @@
 #!/bin/sh
 
 ## Script to install Sophos Antivirus
+## This script is intended to be run on the JSS, with $4-$6
+## being provided by the policy that includes this script.
+
+## DO NOT EDIT THE SCRIPT ON THE JSS. It should always be a
+## tagged copy from the JSS pushed up with release-to-jss.py
 
 TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
 INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
