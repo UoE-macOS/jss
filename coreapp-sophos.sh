@@ -5,7 +5,7 @@
 ## being provided by the policy that includes this script.
 
 ## DO NOT EDIT THE SCRIPT ON THE JSS. It should always be a
-## tagged copy from the JSS pushed up with release-to-jss.py
+## tagged copy from git, pushed up with release-to-jss.py
 
 TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
 INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
@@ -19,7 +19,6 @@ UPDATE_FREQUENCY="$6"
 
 ## In minutes, so 1440 is 24 hours
 UPDATE_INTERVAL="$7"
-
 
 # Create temporary work area if it doesn't exist
 [ ! -d "${TEMP_DIR}" ] && mkdir -p "${TEMP_DIR}"
@@ -119,9 +118,14 @@ if [ "$?" == 0 ]
 then
     logger "$0: Installed Sophos"
     fix_autoupdate_plist
+    ## Clean up after ourselves
+    rm -rf "${TEMP_DIR}"
     exit 0
 else
     logger "$0: Failed to install Sophos. Error Code: ${?}"
+    # Don't clean up: allow support staff to try to work our what went wrong!
+    # The script will clean up the temp area on its next invocation so we
+    # don't need to worry about filling up the disk.
     exit 255
 fi
 
