@@ -87,7 +87,7 @@ then
 		exit 0
         else
 	        logger "$0: Sophos < 9 found - will attempt to re-install"
-                # Scrub the autoupdate cache and lockfile then do an update (pkg installs new update server)
+                # Scrub the autoupdate cache and lockfile in preparation for our new installation
                 rm -f /Library/Caches/com.sophos.sau/CID/cidsync.upd
                 rm -f /Library/Caches/com.sophos.sau/sophosautoupdate.plist
                 rm -f /Library/Preferences/com.sophos.sau.plist.lockfile                
