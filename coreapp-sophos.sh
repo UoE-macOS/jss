@@ -18,9 +18,10 @@ then
                 # Disable web protection - it leaks information and slows down web browsing
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionFilteringEnabled -bool false
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionScanningEnabled -bool false
-        
+		logger "$0: Found Sophos installed - will not attempt reinstall"
                 exit 0;
         else
+	        logger "$0: Sophos < 9 found - will attempt to re-install"
                 # Scrub the autoupdate cache and lockfile then do an update (pkg installs new update server)
                 rm -f /Library/Caches/com.sophos.sau/CID/cidsync.upd
                 rm -f /Library/Caches/com.sophos.sau/sophosautoupdate.plist
@@ -28,6 +29,8 @@ then
                 sleep 1
                 rm -dfR /Library/Caches/com.sophos.sau
         fi      
+else
+    logger "$0: No previous sophos installation detected. Will attempt install."
 fi
 
 # Download and install Sophos AV
