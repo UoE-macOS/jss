@@ -14,15 +14,15 @@ INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer
 rm -rf "${TEMP_DIR}"/*
 
 # Check if Sophos has been previously installed
-if [ -f "/Applications/Sophos\ Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
+if [ -f "/Applications/Sophos Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
-        version="$(defaults read /Applications/Sophos\ Anti-Virus.app/Contents/Info CFBundleShortVersionString | awk -F "." '{print $1}')"
+        version=$(defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString | awk -F "." '{print $1}')
         if [ $version == 9 ]
         then
                 # Disable web protection - it leaks information and slows down web browsing
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionFilteringEnabled -bool false
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionScanningEnabled -bool false
-		logger "$0: Found Sophos installed - will not attempt reinstall"
+		logger "$0: Found Sophos version 9 installed - will not attempt reinstall"
                 exit 0;
         else
 	        logger "$0: Sophos < 9 found - will attempt to re-install"
