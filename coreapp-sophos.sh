@@ -2,13 +2,16 @@
 
 ## Script to install Sophos Antivirus
 
-TEMP_DIR="/tmp/sophos"
+TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
 UPDATE_SERVER="$4"
 INSTALL_FILE="$5"
 INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
 
 # Create temporary work area if it doesn't exist
 [ ! -d "${TEMP_DIR}" ] && mkdir -p "${TEMP_DIR}"
+
+# Make sure it's empty
+rm -rf "${TEMP_DIR}"/*
 
 # Check if Sophos has been previously installed
 if [ -f "/Library/Caches/com.sophos.sau/CID/cidsync.upd" ]
