@@ -69,7 +69,8 @@ fix_autoupdate_plist() {
 </dict>
 </plist>
  EOF
-
+}
+    
 # Check if Sophos has been previously installed
 if [ -f "/Applications/Sophos Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
