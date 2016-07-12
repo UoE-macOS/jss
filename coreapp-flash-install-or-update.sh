@@ -12,7 +12,7 @@ installed_version="$(defaults read /Library/Internet\ Plug-Ins/Flash\ Player.plu
 available_version="$(/usr/bin/curl --silent http://fpdownload2.macromedia.com/get/flashplayer/update/current/xml/version_en_mac_pl.xml |\
                  grep 'update version' | sed -E 's/.*update version="([0-9,]+)".*/\1/;s/,/./g')"
                  
-major_version=$(echo available_version | awk -F '.' '{print $NF}')
+major_version=$(echo ${available_version} | awk -F '.' '{print $NF}')
 
 install_flash() {
   # Create a temporary directory in which to mount the .dmg
