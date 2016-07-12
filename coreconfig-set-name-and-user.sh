@@ -177,12 +177,15 @@ set_machine_name() {
     ;;
     desktop)
       name=$(get_edlan_dnsname)
+      # If we don't get a name for some reason
+      # then just use the same scheme as for
+      # laptops.
+      [ -z ${name} ] && name=${school}-$(get_serial)
     ;;
     *)
-      name="Unknown"
+      name=${school}-"Unknown"
     ;;
-  esac
- 
+  esac 
   /usr/sbin/scutil --set LocalHostName $( echo "${name}" | awk -F '.' '{print $1}' )
   /usr/sbin/scutil --set ComputerName "${name}"
   /usr/sbin/scutil --set HostName "${name}"
