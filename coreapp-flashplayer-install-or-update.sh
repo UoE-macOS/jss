@@ -19,7 +19,7 @@ install_flash() {
   tmp_mount=`/usr/bin/mktemp -d /tmp/flashplayer.XXXX`
   
   # Attach the install DMG directly from Adobe's servers (ensuring HTTPS)
-  hdiutil attach https://fpdownload.macromedia.com/get/flashplayer/current/licensing/mac/install_flash_player_${major_version}_osx_ppapi_pkg.dmg \
+  hdiutil attach https://fpdownload.macromedia.com/get/flashplayer/current/licensing/mac/install_flash_player_${major_version}_osx_pkg.dmg \
   -nobrowse -quiet -mountpoint "${tmp_mount}"
   
   # The package has used some slightly different naming schemes
