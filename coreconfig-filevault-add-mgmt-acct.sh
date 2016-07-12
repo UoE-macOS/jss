@@ -1,5 +1,6 @@
 #!/bin/bash
 
+current_user="${3}"
 mgmt_user="${4}"
 mgmt_pass="${5}"
 
@@ -13,8 +14,7 @@ mgmt_pass="${5}"
 
 get_password() {
   logger "$0: Asking for password"
-  logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
-  pwd="$(sudo -u ${logged_in_user} osascript << EOF
+  pwd="$(sudo -u ${current_user} osascript << EOF
   tell application "Finder"
       activate
       with timeout of 36000 seconds
