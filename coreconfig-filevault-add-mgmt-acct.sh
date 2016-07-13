@@ -15,6 +15,9 @@ mgmt_pass="${5}"
 get_password() {
   logger "$0: Asking for password"
   pwd="$(sudo -u ${current_user} osascript << EOF
+  repeat while application "Finder" is not running
+    delay 1
+  end repeat
   tell application "Finder"
       activate
       with timeout of 36000 seconds
@@ -38,7 +41,7 @@ get_password() {
 user_pwd=$(get_password)
 
 # Try enabling filevault
-/usr/bin/expect -d -f- << EOT
+/usr/bin/expect -f- << EOT
   spawn /usr/bin/fdesetup add -usertoadd "${mgmt_user}"; 
   expect "Enter a password for '/', or the recovery key:*"
   send -- "${user_pwd}"
