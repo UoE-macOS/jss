@@ -324,6 +324,33 @@ else
   success_message_existing_account ${uun}
 fi
 
+# Run recon to let the JSS know who the primary user of this machine will be
 update_jss ${uun} 
 
+# Display this message but send the jamfhelper process into the background
+# so that execution continues
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Checking Core Applications'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are ensuring that your core applications are up to date.\\n\\nThis may take several minutes.\\nPlease do not restart your computer)" &
+
+# Run any policies that are triggered by the 'core-apps' event  
 trigger_core_apps
+
+# CoreApps are done now, kill the info window.
+killall jamfHelper
+
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+  -windowType utility\
+  -title 'UoE Mac Supported Desktop'\
+  -heading 'Please restart'\
+  -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+  -description "$(echo -e Core installation complete.\\n\\nPlease restart and log in as ${uun} to complete the setup.)"\
+  -timeout 99999\
+  -button1 'Restart now'
+
+# We didn't give the user a choice, so...
+reboot
