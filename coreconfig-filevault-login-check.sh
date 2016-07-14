@@ -27,7 +27,25 @@ if ! filevault_is_enabled
 then
   if user_is_valid ${3}
   then
+    # This causes the 'UoE - FileVault - Initialise' policy to
+    # set things up such that FileVault will be enabled for the
+    # current user on next logout
     /usr/local/bin/jamf policy -event 'filevault-init'
+    
+    # Now force the user to log out to complete the enablement process
+    result="$(sudo -u ${3} osascript <<EOT
+      repeat while application "Finder" is not running
+        delay 1
+      end repeat
+      tell application "System Events"
+        activate
+        display dialog "You need to log out and enter your password in order to complete the disk encryption process" buttons {"Log Out Now"} default button 1
+      end tell
+      -- Log out without giving any further warnings
+      tell application "loginwindow" to «event aevtrlgo»
+EOT
+)"
+
   else
     echo "$0: Filevault inactive but non-valid user"
   fi
