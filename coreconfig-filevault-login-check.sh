@@ -39,7 +39,7 @@ then
       end repeat
       tell application "System Events"
         activate
-        with timeout of 36000
+        with timeout of 36000 seconds
           display dialog "You need to log out and enter your password in order to complete the disk encryption process" buttons {"Log Out Now"} default button 1
         end timeout
       end tell
