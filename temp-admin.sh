@@ -2,7 +2,7 @@
 
 ##############
 # TempAdmin.sh
-# This script will give a user 15 minutes of Admin level access.
+# This script will give a user 30 minutes of Admin level access.
 # It is designed to create its own offline self-destruct mechanism.
 ##############
 
