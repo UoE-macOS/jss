@@ -2,7 +2,7 @@
 
 ##############
 # TempAdmin.sh
-# This script will give a user 15 minutes of Admin level access.
+# This script will give a user 30 minutes of Admin level access.
 # It is designed to create its own offline self-destruct mechanism.
 ##############
 
@@ -31,6 +31,7 @@ echo "<?xml version="1.0" encoding="UTF-8"?>
 # create admin rights removal script
 #####
 echo '#!/bin/bash
+osascript -e 'display notification \"Local administrator privileges have been revoked\" with title \"Admin Revoked\"'
 USERNAME=`cat /var/admin-logs/userToRemove`
 /usr/sbin/dseditgroup -o edit -d $USERNAME -t user admin
 rm -f /var/admin-logs/userToRemove
@@ -61,7 +62,7 @@ echo $USERNAME >> /var/admin-logs/userToRemove
 /usr/sbin/dseditgroup -o edit -a $USERNAME -t user admin
 
 # notify
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Temporary Admin Rights Granted' -description "
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Admin Rights Granted' -description "
 Please use responsibly. 
 All administrative activity is logged. 
 Access expires in 15 minutes." -button1 'OK' > /dev/null 2>&1 &
