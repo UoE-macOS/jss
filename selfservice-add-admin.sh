@@ -64,7 +64,7 @@ echo $USERNAME >> /var/admin-logs/userToRemove
 /usr/sbin/dseditgroup -o edit -a $USERNAME -t user admin
 
 # notify
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Temporary Admin Rights Granted' -description "
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Admin Rights Granted' -description "
 Please use responsibly. 
 All administrative activity is logged. 
 Access expires in 15 minutes." -button1 'OK' > /dev/null 2>&1 &
