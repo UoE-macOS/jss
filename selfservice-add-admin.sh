@@ -31,13 +31,13 @@ echo "<?xml version="1.0" encoding="UTF-8"?>
 # create admin rights removal script
 #####
 echo '#!/bin/bash
-osascript -e 'display notification \"Local administrator privileges have been revoked\" with title \"Admin Revoked\"'
+osascript -e '"'"'display notification "Local administrator privileges have been revoked" with title "Admin Revoked"'"'"'
 USERNAME=`cat /var/admin-logs/userToRemove`
 /usr/sbin/dseditgroup -o edit -d $USERNAME -t user admin
 rm -f /var/admin-logs/userToRemove
 rm -f /Library/LaunchDaemons/uk.ac.ed.adminremove.plist
 rm -f /Library/Scripts/removeTempAdmin.sh
-exit 0'  > /Library/Scripts/removeTempAdmin.sh
+exit 0' > /Library/Scripts/removeTempAdmin.sh  
 #####
 
 # set the permission on the files just made
