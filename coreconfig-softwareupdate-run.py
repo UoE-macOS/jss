@@ -141,7 +141,7 @@ def should_defer(defer_until):
                               '-heading', 'Software Update Available',
                               '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
                               '-timeout', '99999',
-                              '-description', "One or more software updates require a restart.\nIt is essential that software updates are applied in a timely fashion.\n\nYou can either restart now or defer.\n\nAfter %s you will be required to restart." % defer_until,
+                              '-description', "One or more software updates require a restart.\nIt is essential that software updates are applied in a timely fashion.\n\nYou can either restart now or defer.\n\nAfter %s you will be required to restart." % defer_until.strftime( "%a, %d %b %H:%M:%S"),
                               '-button1', 'Restart now',
                               '-button2', 'Restart later' ])
     if answer == 2: # 0 = now, 2 = defer
@@ -156,7 +156,7 @@ def force_logout():
                               '-heading', 'Mandatory Restart Required',
                               '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
                               '-timeout', '99999',
-                              '-description', 'A software update which requires a restart has been deferred for %s days and a restart is now mandatory.\n\nPlease save your work and restart now.',
+                              '-description', "A software update which requires a restart has been deferred for the maximum allowable time and a restart is now mandatory.\n\nPlease save your work and restart now to install the update.",
                               '-button1', 'Restart now' ])
     friendly_logout()
 
