@@ -15,10 +15,10 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 SW_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.softwareupdated.plist'
-QUICKADD_LOCK = '/var/db/run/UoEQuickAddRunning'
+QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 
-if len(sys.argv) < 5:
-    DEFER_LIMIT = sys.argv[4]
+if len(sys.argv) > 3:
+    DEFER_LIMIT = sys.argv[3]
 else:
     DEFER_LIMIT = 7 # 7 Days by default
 
