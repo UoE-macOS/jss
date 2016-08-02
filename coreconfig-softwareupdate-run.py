@@ -123,7 +123,7 @@ def deferral_ok_until():
             return False
     else:
         # Create the file, and write into it
-        limit = datetime.timedelta(days = DEFER_LIMIT)
+        limit = datetime.timedelta(days = int(DEFER_LIMIT) )
         defer_date = now + limit
         plist = { 'DeferOkUntil': defer_date }
         plistlib.writePlist(plist, DEFER_FILE)
