@@ -15,6 +15,7 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 SW_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.softwareupdated.plist'
+QUICKADD_LOCK = '/var/db/run/UoEQuickAddRunning'
 
 if len(sys.argv) < 5:
     DEFER_LIMIT = sys.argv[4]
@@ -23,6 +24,11 @@ else:
 
 
 def main():
+    # Don't run if the quickadd package is still doing its stuff
+    if os.path.exists(QUICKADD_LOCK):
+        print "QuickAdd package appears to be running - will exit"
+        sys.exit(0)
+    
     # Check for updates - we stash the result so that
     # we minimise the about of times we have to run the
     # softwareupdate command - it's slow.
