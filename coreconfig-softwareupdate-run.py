@@ -35,7 +35,6 @@ def main():
     list = get_updates()
     
     if updates_available(list):
-        # Download them now, if possible
         if restart_required(list):
             # Updates are available and a restart is
             # required.
@@ -60,8 +59,13 @@ def main():
             # Updates are available, but they don't
             # require a restart - just install them
             install_updates()
+            # and remove the deferral tracking file
+            remove_deferral_tracking_file()
+            sys.exit(0)
     else:
         print "No Updates"
+        remove_deferral_tracking_file()
+        sys.exit(0)
     
 
 def get_updates():
@@ -155,7 +159,11 @@ def force_logout():
                               '-description', 'A software update which requires a restart has been deferred for %s days and a restart is now mandatory.\n\nPlease save your work and restart now.',
                               '-button1', 'Restart now' ])
     friendly_logout()
-    
+
+def remove_deferral_tracking_file():
+    if os.path.exists(DEFER_FILE):
+        os.remove(DEFER_FILE)
+        print "Removed deferral tracking file"
     
 def console_user():
     return subprocess.check_output([ 'ls', '-l', '/dev/console' ]).split()[2]
