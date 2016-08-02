@@ -6,8 +6,10 @@ LDAP_SCHOOL="eduniSchoolCode"
 LDAP_FULLNAME="cn"
 LDAP_UIDNUM="uidNumber"
 EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
+LOCK_FILE="/var/run/UoEQuickAddRunning"
 
 JSS_URL="$(defaults read /Library/Preferences/com.jamfsoftware.jamf.plist jss_url)"
+
 
 check_jss_available() {
   # Can we see the JSS?
@@ -307,6 +309,11 @@ EOT
 ### Execution starts here ###
 check_jss_available
 
+# Drop a lock file so that other processes know
+# we are running
+
+touch "${LOCK_FILE}"
+
 uun=$(get_username)
 
 set_machine_name ${uun}
@@ -335,10 +342,13 @@ update_jss ${uun}
  -heading 'Checking Core Applications'\
  -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
  -timeout 99999\
- -description "$(echo -e We are ensuring that your core applications are up to date.\\n\\nThis may take several minutes.\\nPlease do not restart your computer)" &
+ -description "$(echo -e We are ensuring that your core applications and system software are up to date.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
 
 # Run any policies that are triggered by the 'core-apps' event  
 trigger_core_apps
+
+# Run softwareupdate to install any recommended updates
+softwareupdate -i -r
 
 # CoreApps are done now, kill the info window.
 killall jamfHelper
@@ -351,6 +361,9 @@ killall jamfHelper
   -description "$(echo -e Core installation complete.\\n\\nPlease restart and log in as ${uun} to complete the setup.)"\
   -timeout 99999\
   -button1 'Restart now'
+
+# We are done - delete our lock file
+rm "${LOCK_FILE}"
 
 # We didn't give the user a choice, so...
 reboot
