@@ -18,7 +18,7 @@ SW_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.softwareupdated.plist
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 
 if len(sys.argv) > 3:
-    DEFER_LIMIT = sys.argv[3]
+    DEFER_LIMIT = sys.argv[4]
 else:
     DEFER_LIMIT = 7 # 7 Days by default
 
