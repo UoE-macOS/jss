@@ -5,6 +5,9 @@ LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
 LDAP_SCHOOL="eduniSchoolCode"
 LDAP_FULLNAME="cn"
 LDAP_UIDNUM="uidNumber"
+
+KRB_REALM='ED.AC.UK'
+
 EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
 LOCK_FILE="/var/run/UoEQuickAddRunning"
 
@@ -82,7 +85,7 @@ get_password() {
   return the_answer
   EOF
      )"
-  until  [ $? != 0 ] || $(valid_password ${uun} "${pwd}") 
+  until  [ $? != 0 ] || $(got_krb_tgt ${uun} "${pwd}") 
   do
     get_password ${uun} 
   done
@@ -103,26 +106,14 @@ valid_username() {
   [ ! -z "$(get_school ${1})" ]
 }
   
-valid_password() {
-  # Determine the user has typed the correct password
-  # Uses expect to avoid passing a password on the commandline
+got_krb_tgt() {
+  # Get a kerberos TGT
+  # Avoid passing a password on the commandline
+  # Use printf to avoid the shell interpreting any special chars
   uun="${1}"
   pwd="${2}"
 
-
-  result=$(/usr/bin/expect -f - << EOT
-  spawn ldapsearch -W -D "uid=${uun},ou=people,ou=central,${LDAP_BASE}" -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
-       -s sub "(uid=${uun})" "${LDAP_SCHOOL}"
-  
-  expect "Enter LDAP Password:*"
-  send -- "${pwd}"
-  send -- "\r"
-  expect eof
-EOT
-	   )
-  
-  # Check we looked up a school code. Returns True or false
-  [ ! -z "$(echo "${result}" | awk -F ': ' '/'"${LDAP_SCHOOL}"'/ {print $2}')" ]
+  printf '%s' "${pwd}" | kinit --password-file=STDIN "${uun}@${KRB_REALM}"
 }
 
 get_mobility() {
@@ -224,15 +215,15 @@ create_local_account() {
   dscl . -create /Users/${uun} NFSHomeDirectory /Users/${uun}
   
   logger "$0: Setting password for ${uun}"
-  # Avoid passing the password on the commandline 
+  # Avoid passing the password on the commandline
+	# We use printf '%q' to make sure that special
+	# chars are escaped from being interpreted by
+	# expect.
   result=$(/usr/bin/expect -f - << EOT
-
   log_user 0
   spawn -noecho dscl . -passwd /Users/${uun}
-
   expect "New Password:*"
-
-  send -- "${pwd}" 
+  send -- $(printf '%q' "${pwd}") 
   send -- "\r"
   expect {
     "*DS Error:*" {
