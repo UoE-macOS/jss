@@ -44,10 +44,10 @@ user_pwd=$(get_password)
 /usr/bin/expect -f- << EOT
   spawn /usr/bin/fdesetup add -usertoadd "${mgmt_user}"; 
   expect "Enter a password for '/', or the recovery key:*"
-  send -- "${user_pwd}"
+  send -- $(printf '%q' "${user_pwd}")  
   send -- "\r"
   expect "Enter the password for the added user '${mgmt_user}':*" 
-  send -- "${mgmt_pass}"
+  send -- $(printf '%q' "${mgmt_pass}") 
   send -- "\r"
   expect eof;
 EOT
