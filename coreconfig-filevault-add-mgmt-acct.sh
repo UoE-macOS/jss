@@ -38,7 +38,7 @@ get_password() {
   fi
 }
 
-user_pwd=$(get_password)
+user_pwd="$(get_password)"
 
 # Try enabling filevault
 /usr/bin/expect -f- << EOT
