@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/sh -x
+
 # Delete old LCFG installation
 
 # This is an import of Kenny's script from 
@@ -41,19 +42,19 @@ _delete_pkg () {
     for file in `_pkg_files ${1}`
     do
         if [ -f ${file} ]
-	then
+				then
             _check_file ${file} ${1} && rm ${file} 2>/dev/null
-	else
-	    if [ -d "${file}" ]
-	    then
-		lcfg_dirs="${lcfg_dirs} ${file}"
-	    fi
-	fi
+				else
+					if [ -d "${file}" ]
+					then
+						lcfg_dirs="${lcfg_dirs} ${file}"
+					fi
+				fi
     done
     
     for dir in ${lcfg_dirs}
     do
-	_check_file ${dir} ${1} && rmdir ${dir} 2>/dev/null
+			_check_file ${dir} ${1} && rmdir ${dir} 2>/dev/null
     done
 
     _forget_pkg ${1}
@@ -62,7 +63,9 @@ _delete_pkg () {
 _delete_lcfg() {
 
     local p
-
+    
+    [ -f "/var/lcfg/conf/profile/nodename" ] && cat /var/lcfg/conf/profile/nodename > /var/db/.MigratingFromLCFG 2>/dev/null
+    
     # Remove some directories we know are only from LCFG
     rm -rf  /var/lcfg \
         /usr/{,local}/lib/lcfg \
@@ -85,6 +88,8 @@ _delete_lcfg() {
     # Delete remaining files from all LCFG packages, and forget them
     # too.
     for p in `_lcfg_pkgs` ; do _delete_pkg ${p}; done
+    
+    [ -f "/var/db/.MigratingFromLCFG" ] && mv /var/db/.MigratingFromLCFG /var/db/MigratedFromLCFG || exit 0
 }
 
 # Call the main function ...
