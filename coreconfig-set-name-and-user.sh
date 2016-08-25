@@ -297,6 +297,22 @@ EOT
   
 }
 
+delete_lcfg() {
+	# Display a message in the background...
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Removing LCFG'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are removing the previous management framework.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
+
+	/usr/local/bin/jamf policy -event delete-lcfg
+
+	killall jamfHelper
+}
+
+	
 ### Execution starts here ###
 check_jss_available
 
@@ -321,6 +337,9 @@ then
 else
   success_message_existing_account ${uun}
 fi
+
+# If an old LCFG installation exists, delete it.
+delete_lcfg
 
 # Run recon to let the JSS know who the primary user of this machine will be
 update_jss ${uun} 
