@@ -67,6 +67,7 @@ get_username() {
     get_username
   done
   echo ${uun}
+  exit
 }
 
 get_password() {
@@ -94,7 +95,8 @@ get_password() {
   then
     false
   else
-    echo "${pwd}"
+    printf '%s' "${pwd}"
+    exit # Make sure we don't print the password multiple times!
   fi
 }
 
