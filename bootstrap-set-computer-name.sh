@@ -9,7 +9,7 @@ LDAP_UIDNUM="uidNumber"
 EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
 
 main() {
-  if [[ ${4} == 'LOGIN' ]]
+  if [[ ${1} == 'LOGIN' ]]
   then
     # Use the logged-in user's name, probably because we are
     # being run immediately after setup of a DEP machine.
@@ -86,4 +86,4 @@ get_macaddr() {
 }
 
 # Do something!
-main $@
+main "${4}"
