@@ -1,8 +1,17 @@
 #!/bin/sh
 
+###################################################################
+#
 # Script to set up a default Kerberos config file and modify
 # the PAM configiration so a TGT is requested on login and
 # renewed on wake from sleep or screen unlock.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 KRB5FILE='/etc/krb5.conf'
 PAM_AUTHZ='/etc/pam.d/authorization'
