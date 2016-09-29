@@ -1,9 +1,18 @@
 #!/bin/sh
 
-# This script will check whether the currectly installed version
+###################################################################
+#
+# This script will check whether the currently installed version
 # of Flash Player matches that available from Adobe's servers. If
 # the versions differ, it will download the latest version and
 # install it.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 ME=$(basename "${0}")
 

@@ -1,5 +1,19 @@
 #!/bin/sh
 
+###################################################################
+#
+# Script which could be published via self-service to allow
+# users to add their own Active Directory homeDirectory to their
+# 'favourites' sidebar, simplifying access.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
+
+
 LDAP_HOST='ldap://oban.ed.ac.uk'
 LDAP_BASE='dc=ed,dc=ac,dc=uk'
 LDAP_HOMEDIR='homeDirectory'
@@ -16,7 +30,7 @@ main() {
 	homepath=$(get_homepath ${user})
 
 	# Datastore doesn't support kerberos, so
-  # add an entry for it to the user's keychain
+  # add an entry to the user's keychain
 	add_keychain_entry "${user}" "${password}" "${homepath}"
 
 	# Mount the network home and work out
@@ -51,7 +65,7 @@ EOF
 
 get_tgt() {
   password=${1}
-	echo ${password} | kinit --password-file=STDIN
+	printf '%s' "${password}" | kinit --password-file=STDIN
 }
 
 get_homepath() {
@@ -65,7 +79,7 @@ add_keychain_entry() {
 	user=${1}
 	password=${2}
 	server="$(echo ${3} | awk -F '/' '{print $1}')"
-	sudo -u "${user}" echo "add-internet-password -a "${user}" -d ED -s "${server}" -r 'smb ' -w "${password}" -T '/System/Library/CoreServices/NetAuthAgent.app' -U /Users/${user}/Library/Keychains/login.keychain" \
+	sudo -u "${user}" echo "add-internet-password -a "${user}" -d ED -s "${server}" -r 'smb ' -w "$(printf '%q' ${password})" -T '/System/Library/CoreServices/NetAuthAgent.app' -U /Users/${user}/Library/Keychains/login.keychain" \
     | security -i
 	}
 

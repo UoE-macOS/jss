@@ -1,10 +1,19 @@
 #!/bin/bash
 
-##############
-# TempAdmin.sh
-# This script will give a user 15 minutes of Admin level access.
-# It is designed to create its own offline self-destruct mechanism.
-##############
+###################################################################
+#
+# Script to allow users to elevate themselves to admin on any machine
+# DEPLOY VIA SELF-SERVICE WITH CARE - YOU ARE GIVING ANY USER WHO RUNS
+# THIS THE ABILITY TO MAKE THMSELVES AN ADMIN, EFFECTIVELY FOREVER,
+# ON ANY MACHINE ON WHICH THEY CAN RUN THIS SCRIPT.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
+
 
 USERNAME=`who |grep console| awk '{print $1}'`
 LOGS='/var/admin-logs'

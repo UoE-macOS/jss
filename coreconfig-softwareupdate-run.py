@@ -1,6 +1,28 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+###################################################################
+#
+# This script provides a deferral and enforcement mechanism for 
+# software updates. If updates are available which don't require
+# a restart, they are installed silently in the background. If critical 
+# updates are found which do require a restart, the user is nagged to 
+# install them and given the option to defer for up to DEFER_LIMIT
+# days. DEFER_LIMIT can be set as ${4} in the JSS.
+# After DEFER_LIMIT days the warning can't be dismissed until the user agrees to
+# install the updates.
+# We use Apple's supported-ish mechanism for setting updates to install
+# at logout so that we don't get into a situation of installing updates
+# which require a reboot under the user, leaving the machine in a potentially
+# unstable state
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
+
 import os
 import sys
 import subprocess

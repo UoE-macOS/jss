@@ -1,11 +1,19 @@
 #!/bin/sh
 
-## Script to install Sophos Antivirus
-## This script is intended to be run on the JSS, with $4-$6
-## being provided by the policy that includes this script.
-
-## DO NOT EDIT THE SCRIPT ON THE JSS. It should always be a
-## tagged copy from git, pushed up with release-to-jss.py
+###################################################################
+#
+# Script to install Sophos Antivirus from local infratructure and
+# configure autoupdate.
+#
+# This script is intended to be run on the JSS, with $4 - $6
+# being provided by the policy that includes this script.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
 INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"

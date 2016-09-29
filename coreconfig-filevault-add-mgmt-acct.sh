@@ -1,9 +1,7 @@
 #!/bin/bash
 
-current_user="${3}"
-mgmt_user="${4}"
-mgmt_pass="${5}"
-
+###################################################################
+#
 # If this script is running, filevault is
 # enabled but we neither have a valid recovery
 # key nor is our management account able to 
@@ -11,6 +9,17 @@ mgmt_pass="${5}"
 # situation so we try to persuade the user to give
 # us credentials that will allow us to add the 
 # management user to filevault.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
+
+current_user="${3}"
+mgmt_user="${4}"
+mgmt_pass="${5}"
 
 get_password() {
   logger "$0: Asking for password"

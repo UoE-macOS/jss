@@ -1,6 +1,11 @@
 #!/bin/sh
 ####################################################################################################
 #
+#       Date: @@DATE
+#       Version: @@VERSION
+#       Origin: @@ORIGIN
+#       Released by JSS User: @@USER
+#
 # Copyright (c) 2010, JAMF Software, LLC.  All rights reserved.
 #
 #       Redistribution and use in source and binary forms, with or without

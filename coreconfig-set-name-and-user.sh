@@ -1,4 +1,26 @@
 #!/bin/bash
+###################################################################
+#
+# This script is run at enrollmentcomplete on non-DEP machines.
+# We assume that the quickadd package is being run by a user who
+# may or may not be the intended primary user of the machine.
+#
+# The script will ask for the username of the primary user and, if
+# a password is provided which matches our dircetory service and there
+# is no existing account for that user on this machine, will
+# then create a local account for that user. If the machine is a
+# laptop it is named with a compbination of that user's school code
+# and the serial number. If it is a desktop the name is looked up
+# in our network database.
+#
+# Finally the policy to install our core-applications is called.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"

@@ -1,5 +1,23 @@
 #!/bin/sh
 
+#######################################################################
+#
+# This script sets the computer name.
+# If the computer is a desktop, then it is looked up by MAC address
+# in the EdLAN database, and the HOSTNAME from the resulting entry
+# is used.
+#
+# If the computer is a laptop, and $4 is set to LOGIN
+# then the name will be based on the school code of the user
+# who is currently logged in, combined with the computer serial number.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+#######################################################################
+
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
 LDAP_SCHOOL="eduniSchoolCode"

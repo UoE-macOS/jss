@@ -1,12 +1,17 @@
-#!/bin/sh -x
+#!/bin/sh
 
+###################################################################
+#
 # Delete old LCFG installation
-
-# This is an import of Kenny's script from 
+# This is an import of Kenny's script from
 # https://sourced.ecdf.ed.ac.uk/projects/is/dst/browser/macosx/trunk/UoE-Welcome/scripts/delete-lcfg
-
-# We place all our code inside functions with local variables to avoid
-# changing any global vars.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 echo Removing old LCFG installation ...
 

@@ -1,8 +1,17 @@
 #!/bin/bash
 
+###################################################################
+#
 # This script triggers a custom event ('filevault-init')
 # if filevault is currently disabled and the user logging
-# in is a valis user in our directory service.
+# in is a valid user in our directory service.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"

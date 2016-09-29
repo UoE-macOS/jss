@@ -1,5 +1,25 @@
 #!/bin/sh
 
+#######################################################################
+#
+# This script is intended to be run at login and adds the Bomgar
+# application to the os x application firewall. The application name
+# contains a random or date-related string so we need to use globbing
+# to locate it.
+#
+# In theory it isn't necessary to run this more than once for each
+# version of Bomgar, but running it every login has no perceptible
+# performance hit and ensures that the user is not presented with the
+# 'would you like to allow Bomgar Jump Client to access the network'
+# dialogue, which has been seen to cause confusion.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+#######################################################################
+
 # Check bomgar agent and app exist, use arrays since it is just easier.
 BOMGAR_APP=(/Users/Shared/bomgar-scc*)
 BOMGAR_AGENT=(/Library/LaunchAgents/com.bomgar.bomgar-scc*)

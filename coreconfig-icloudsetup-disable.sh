@@ -1,7 +1,18 @@
 #!/bin/bash
 
+###################################################################
+#
 # Copied and modified from Rich Trouton's script at ...
 # https://gist.github.com/rtrouton/a01073797a6d7e1fff9a#file-gistfile1-sh
+#
+# NB in >=10.12 it appears to be possible to do this with a profile
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 # Determine OS version
 osvers=$(sw_vers -productVersion | awk -F. '{print $2}')

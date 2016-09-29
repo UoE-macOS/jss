@@ -1,7 +1,16 @@
 #!/bin/sh
 
+###################################################################
+#
 # Simple script to set up preferences for softwareupdate.
 # The actual values can be passed in via variables for flexibility.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
 
 ME="$( echo $0 | awk -F '/' '{print $NF}' )"
 

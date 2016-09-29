@@ -1,8 +1,18 @@
 #!/bin/sh
 
+###################################################################
+#
 # Script to configure a single printer using lpadmin.
 # If the printer already exists it will not be altered unless
 # $10 is set to 'YES' as described below.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##################################################################
+
 
 # Name of the print queue on the server
 queue="${4}"
