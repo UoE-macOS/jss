@@ -61,7 +61,7 @@ for file in ${PAM_AUTHZ} ${PAM_LOGIN} ${PAM_SCREENSAVER}
 do
 	if [ -f "${file}" ]
 	then
-		echo 'Ensuring ${file} is up to date...'
+		echo "Ensuring ${file} is up to date..."
 		if egrep '^auth       optional       pam_krb5\.so.*use_kcminit$' "${file}"
 		then
 			sed -E -i.$(date "+%Y-%m-%d-%H:%M:%S") \
