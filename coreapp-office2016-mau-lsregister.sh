@@ -25,6 +25,8 @@ echo "Making sure $loggedInUser won't see the microsoft autoupdate box"
 register_trusted_cmd="/usr/bin/sudo -u $loggedInUser /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -R -f -trusted"
 
 daemon="/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app/Contents/MacOS/Microsoft AU Daemon.app"
+app="/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app"
 
 # Do it!
 $register_trusted_cmd "$daemon"
+$register_trusted_cmd "$app"
