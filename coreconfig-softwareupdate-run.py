@@ -25,6 +25,7 @@
 
 import os
 import sys
+from time import sleep
 import subprocess
 import plistlib
 import datetime
@@ -132,6 +133,7 @@ def force_update_on_logout():
     
     # Kick the softwareupdate daemon
     subprocess.call([ 'launchctl', 'unload', SW_LAUNCHDAEMON ])
+    sleep(2) 
     subprocess.call([ 'launchctl', 'load', SW_LAUNCHDAEMON ])
     
 def deferral_ok_until():
