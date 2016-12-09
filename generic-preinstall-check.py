@@ -87,7 +87,6 @@ def search_procs(p_pattern, names=False):
     procs = check_output(['ps', '-Ao', 'pid,comm'], stderr=STDOUT).split('\n')
     # Format it into a list of [ [pid, path], [pid, path] ]
     proc_list = [ x.strip().split(' ', 1) for x in procs if x is not '']
-    print "looking for " + p_pattern
     p_regex=re.compile(p_pattern)
     try: 
         if names == False: # Just return PIDs
