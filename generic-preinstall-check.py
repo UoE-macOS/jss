@@ -28,7 +28,7 @@ from subprocess import (Popen, check_call, check_output, PIPE, STDOUT)
 from time import sleep
 
 def prompt_for_banned_procs(app_name, banned_procs, post_trigger):
-    """ While any processed matching the regex banned_procs
+    """ While any processes matching the regex banned_procs
         are running, display a message requesting that the
         user kill them.
         
