@@ -54,7 +54,7 @@ def prompt_for_banned_procs(app_name, banned_procs, post_trigger):
 
     # If we are here, there are no banned processes running
     # so launch the post policy.
-    print "Launching policy %s" % post_policy
+    print "Firing trigger %s" % post_trigger
     check_call(['/usr/local/bin/jamf', 'policy', '-event', post_trigger])
   
 
