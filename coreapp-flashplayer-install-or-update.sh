@@ -7,12 +7,19 @@
 # the versions differ, it will download the latest version and
 # install it.
 #
+# The variable DOWNLOAD_URL should be provided with, if necessary
+# a placeholder for ${major_version} which will be interpolated
+# before download.
+#
 # Date: @@DATE
 # Version: @@VERSION
 # Origin: @@ORIGIN
 # Released by JSS User: @@USER
 #
 ##################################################################
+
+## URL pointing to a direct download of the Flash Player disk image
+DOWNLOAD_URL="${4}"
 
 ME=$(basename "${0}")
 
@@ -28,8 +35,7 @@ install_flash() {
   tmp_mount=`/usr/bin/mktemp -d /tmp/flashplayer.XXXX`
   
   # Attach the install DMG directly from Adobe's servers (ensuring HTTPS)
-  hdiutil attach https://fpdownload.macromedia.com/get/flashplayer/current/licensing/mac/install_flash_player_${major_version}_osx_pkg.dmg \
-  -nobrowse -quiet -mountpoint "${tmp_mount}"
+  hdiutil attach "$( eval echo "${DOWNLOAD_URL}" )" -nobrowse -quiet -mountpoint "${tmp_mount}"
   
   # The package has used some slightly different naming schemes
   pkg_path="$(/usr/bin/find ${tmp_mount} -maxdepth 1 \( -iname \*Flash*\.pkg -o -iname \*Flash*\.mpkg \))"
