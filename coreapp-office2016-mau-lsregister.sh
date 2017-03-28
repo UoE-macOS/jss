@@ -18,8 +18,13 @@
 ##################################################################
 
 # Find Current User
-loggedInUser=`/usr/bin/who | awk '/console/{ print $1 }'`
-echo "Making sure $loggedInUser won't see the microsoft autoupdate box" 
+loggedInUser=`/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser;\
+              import sys;\
+              username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0];\
+              username = [username,""][username in [u"loginwindow", None, u""]];\
+              sys.stdout.write(username + "\n")'`
+
+echo "Registering Microsoft AutoUpdate with LaunchServices for $loggedInUser" 
 
 # Set Command Variable for trusted application
 register_trusted_cmd="/usr/bin/sudo -u $loggedInUser /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -R -f -trusted"
