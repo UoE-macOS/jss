@@ -18,11 +18,7 @@
 ##################################################################
 
 # Find Current User
-loggedInUser=`/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser;\
-              import sys;\
-              username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0];\
-              username = [username,""][username in [u"loginwindow", None, u""]];\
-              sys.stdout.write(username + "\n")'`
+loggedInUser="${3}"
 
 echo "Registering Microsoft AutoUpdate with LaunchServices for $loggedInUser" 
 
