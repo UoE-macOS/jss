@@ -1,0 +1,88 @@
+#!/bin/bash
+
+###################################################################
+#
+# Script to assign admin rights based on the membership of an AD group
+# with the Computers name. NoMAD caches user AD group membership, so 
+# admin rights will remain, even when the machine is offsite.
+#
+# Date: 19/04/2017
+# Version: 0.1.2
+# Creator: dsavage
+#
+##################################################################
+
+user_exists ()
+{
+  for x in "${@:2}"; do [[ "$x" == "$1" ]] && return 0; done
+  return 1
+}
+
+User_Name="${3}"
+
+Computer_Name=`/usr/sbin/scutil --get ComputerName`
+
+NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD"
+
+Auth_User=`defaults read $NoMAD_Path "UserPrincipal"`
+
+Admin_Group=`defaults read $NoMAD_Path "Groups" | grep "$Computer_Name"`
+
+UUN=`echo $Auth_User | awk -F "@" "{print $1}"`
+
+# Is there a local account with the uun name
+UUN_Present=`dscl . -list /Users | grep $UUN`
+
+Who_is_Admin=(`dscl . -read /Groups/admin | grep GroupMembership`)
+
+if ! [ -e "$NoMAD_Path"* ];
+then
+	exit 1; # NoMAD hasn't launched
+fi
+
+if [ -z "$Auth_User" ];
+then
+	exit 1; # NoMAD hasn't been signed in.
+fi
+
+# Apply admin rights
+
+if [ "$Admin_Group" == *"$Computer_Name"* ] && [ "${User_Name}@ED.AC.UK" == "$Auth_User" ];
+then
+	user_exists "$User_Name" "${Who_is_Admin[@]}"
+	if [ $? == 1 ];
+	then
+		/usr/sbin/dseditgroup -o edit -a $User_Name -t user admin
+	fi
+fi
+
+if [ "$Admin_Group" == *"$Computer_Name"* ] && [ "$UUN" == "$UUN_Present" ];
+then
+	user_exists "$UUN" "${Who_is_Admin[@]}"
+	if [ $? == 1 ];
+	then
+		/usr/sbin/dseditgroup -o edit -a $UUN -t user admin
+	fi
+fi
+
+# Revoke admin rights
+
+if ! [ "$Admin_Group" == *"$Computer_Name"* ];
+then
+	user_exists "$User_Name" "${Who_is_Admin[@]}"
+	if [ $? == 0 ];
+	then
+		/usr/sbin/dseditgroup -o edit -d $User_Name -t user admin
+	fi
+fi
+
+if ! [ "$Admin_Group" == *"$Computer_Name"* ] && [ "$UUN" == "$UUN_Present" ];
+then
+	user_exists "$UUN" "${Who_is_Admin[@]}"
+	if [ $? == 0 ];
+	then
+		/usr/sbin/dseditgroup -o edit -d $UUN -t user admin
+	fi
+fi
+
+exit 0;
