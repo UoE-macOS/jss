@@ -7,18 +7,13 @@
 # admin rights will remain, even when the machine is offsite.
 #
 # Date: 19/04/2017
-# Version: 0.1.2
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
 
-user_exists ()
-{
-  for x in "${@:2}"; do [[ "$x" == "$1" ]] && return 0; done
-  return 1
-}
 
-User_Name="${3}"
+User_Name=`who | grep console | awk '{print $1}'`
 
 Computer_Name=`/usr/sbin/scutil --get ComputerName`
 
@@ -26,14 +21,16 @@ NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD"
 
 Auth_User=`defaults read $NoMAD_Path "UserPrincipal"`
 
-Admin_Group=`defaults read $NoMAD_Path "Groups" | grep "$Computer_Name"`
+Admin_Group=`defaults read $NoMAD_Path "Groups" | grep "$Computer_Name" | awk -F '"' '{print $2}'`
 
-UUN=`echo $Auth_User | awk -F "@" "{print $1}"`
+UUN=`echo $Auth_User | tr @ " " | awk '{print $1}'`
 
 # Is there a local account with the uun name
 UUN_Present=`dscl . -list /Users | grep $UUN`
 
-Who_is_Admin=(`dscl . -read /Groups/admin | grep GroupMembership`)
+Who_is_Admin=`dscl . -read /Groups/admin | grep GroupMembership`
+
+Admin_Exists=`echo $Who_is_Admin | tr " " "\n" | grep $User_Name` 
 
 if ! [ -e "$NoMAD_Path"* ];
 then
@@ -47,19 +44,17 @@ fi
 
 # Apply admin rights
 
-if [ "$Admin_Group" == *"$Computer_Name"* ] && [ "${User_Name}@ED.AC.UK" == "$Auth_User" ];
+if [ "$Admin_Group" == "$Computer_Name" ] && [ "${User_Name}@ED.AC.UK" == "$Auth_User" ];
 then
-	user_exists "$User_Name" "${Who_is_Admin[@]}"
-	if [ $? == 1 ];
+	if ! [ "$Admin_Exists" == "$User_Name" ];
 	then
 		/usr/sbin/dseditgroup -o edit -a $User_Name -t user admin
 	fi
 fi
 
-if [ "$Admin_Group" == *"$Computer_Name"* ] && [ "$UUN" == "$UUN_Present" ];
+if [ "$Admin_Group" == "$Computer_Name" ] && [ "$UUN" == "$UUN_Present" ];
 then
-	user_exists "$UUN" "${Who_is_Admin[@]}"
-	if [ $? == 1 ];
+	if ! [ "$Admin_Exists" == "$UUN" ];
 	then
 		/usr/sbin/dseditgroup -o edit -a $UUN -t user admin
 	fi
@@ -67,19 +62,17 @@ fi
 
 # Revoke admin rights
 
-if ! [ "$Admin_Group" == *"$Computer_Name"* ];
+if ! [ "$Admin_Group" == "$Computer_Name" ];
 then
-	user_exists "$User_Name" "${Who_is_Admin[@]}"
-	if [ $? == 0 ];
+	if [ "$Admin_Exists" == "$User_Name" ];
 	then
 		/usr/sbin/dseditgroup -o edit -d $User_Name -t user admin
 	fi
 fi
 
-if ! [ "$Admin_Group" == *"$Computer_Name"* ] && [ "$UUN" == "$UUN_Present" ];
+if ! [ "$Admin_Group" == "$Computer_Name" ] && [ "$UUN" == "$UUN_Present" ];
 then
-	user_exists "$UUN" "${Who_is_Admin[@]}"
-	if [ $? == 0 ];
+	if [ "$Admin_Exists" == "$UUN" ];
 	then
 		/usr/sbin/dseditgroup -o edit -d $UUN -t user admin
 	fi
