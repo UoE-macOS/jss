@@ -1,6 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+##########################################################################
+#
+# A generic mechanism for creating application authorisation requests.
+#
+# NB, on its own this script merely creates .apprequest files in a folder.
+# It must be combined with the approprioate extension attribute and
+# moddleware request processing software to be of any use.
+#
+# IN DEVELOPMENT - USE WITH CAUTION.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+#
+##########################################################################
+
+
 import json
 import sys
 import os
@@ -20,6 +38,7 @@ def main(args):
 
     # Build our request
     request = {}
+    request['policy'] = APP_NAME
     request['date'] = get_now()
     request['UUN'] = get_user()
     request['UUID'] = gen_uuid()
@@ -27,7 +46,6 @@ def main(args):
 
     try:
         write_request(request)
-        run_recon()
         display_confirmation()
     except Exception as ex:
         raise
@@ -60,7 +78,8 @@ def write_request(request, dir=REQUESTS_DIR):
             raise
         elif ex.args[1] == 'File exists':
             pass
-    # Directory should now exist for us to write into
+
+    # The directory should now exist for us to write into
     # If the file already exists, we have a big problem
     out_filename = dir + '/' + request['UUID'] + '.apprequest'
 
