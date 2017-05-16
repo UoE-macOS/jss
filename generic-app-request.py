@@ -48,7 +48,7 @@ You'll receive an email when it has been processed." buttons {"OK"} default butt
     
     
 def run_recon():
-    check_call(['/usr/local/bin/jamf', recon])
+    check_call(['/usr/local/bin/jamf', 'recon'])
     
 
 def write_request(request, dir=REQUESTS_DIR):
