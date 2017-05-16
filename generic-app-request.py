@@ -27,6 +27,7 @@ def main(args):
 
     try:
         write_request(request)
+        run_recon()
         display_confirmation()
     except Exception as ex:
         raise
