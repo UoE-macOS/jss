@@ -6,11 +6,24 @@
 # with the Computers name. NoMAD caches user AD group membership, so 
 # admin rights will remain, even when the machine is offsite.
 #
-# Date: Thu 15 Jun 2017 15:10:04 BST
-# Version: 0.1.5
+# Date: Fri 23 Jun 2017 11:04:46 BST
+# Version: 0.1.6
 # Creator: dsavage
 #
 ##################################################################
+
+
+Random_Domain_Controller ()
+{
+Random_DC="aviemore brora ceres crieff cromarty kelso leven oban vesta"
+Num_Random=`echo $Random_DC | wc -w`
+seed=`head -1 /dev/random | wc -c | tr -d ' '`
+Random_Number=`echo \(${seed}\%${Num_Random}\)+1 | bc`
+Select_DC=`eval echo \"$Random_DC\" | awk '{print $'${Random_Number}'}' `
+
+echo "$Select_DC"
+}
+
 
 
 User_Name=`ls -l /dev/console | awk '{print $3}'`
@@ -25,7 +38,7 @@ echo $Computer_Name
 Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep '/Users/' | awk '{print $2}'`
 
 # Path to the preference
-NoMAD_Path="$Home_Path/Library/Preferences/com.trusourcelabs.NoMAD"
+NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD"
 
 if ! [ -e "$NoMAD_Path"* ];
 then
@@ -48,7 +61,20 @@ Who_is_Admin=`dscl . -read /Groups/admin | grep GroupMembership`
 
 Admin_Exists=`echo $Who_is_Admin | tr " " "\n" | grep $User_Name` 
 
-Admin_Users=( `launchctl asuser $User_Name | ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://aviemore.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
+Domain_Controller="$(Random_Domain_Controller)"
+
+
+# Until we can ping a domain controller
+until ping -c 1 ${Domain_Controller}.ed.ac.uk | grep -q '1 packets received'
+do
+echo no response to ping, server $Domain_Controller down
+
+Domain_Controller="$(Random_Domain_Controller)"
+done
+
+echo "$Domain_Controller responded to ping, using for AD rights..."
+
+Admin_Users=( `launchctl asuser $User_Name | ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://${Domain_Controller}.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
 
 echo ${Admin_User[@]}
 
