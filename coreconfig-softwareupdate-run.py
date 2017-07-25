@@ -235,7 +235,7 @@ def friendly_logout():
     subprocess.call([ 'sudo', '-u', user, 'osascript', '-e', u'tell application "loginwindow" to  «event aevtrlgo»' ])
 
 def restart_required(updates):
-    return 'restart' in updates
+    return any('[restart]' in a for a in updates)
 
 def updates_available(updates):
     # Returns True if there are not no updates :)
