@@ -25,10 +25,12 @@
 
 import os
 import sys
-from time import sleep
 import subprocess
 import plistlib
 import datetime
+import thread
+from time import sleep
+from threading import Timer
 
 SWUPDATE = '/usr/sbin/softwareupdate'
 PLISTBUDDY = '/usr/libexec/PlistBuddy'
@@ -38,6 +40,7 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 SW_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.softwareupdated.plist'
+SWHELPER_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.suhelperd.plist'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 
 if len(sys.argv) > 3:
@@ -53,56 +56,87 @@ def main():
         sys.exit(0)
     
     # Check for updates - we stash the result so that
-    # we minimise the about of times we have to run the
+    # we minimise the number of times we have to run the
     # softwareupdate command - it's slow.
-    list = get_updates()
-    
-    if updates_available(list):
-        if restart_required(list):
-            # Updates are available and a restart is
-            # required.
-            # Download available updates
-            download_updates()
-            # Offer the user the chance to defer
-            defer_until = deferral_ok_until()
-            if defer_until != False:
-                if not should_defer(defer_until):
+    try: 
+        list = get_updates()
+     
+        if updates_available(list):
+            if restart_required(list):
+                # Updates are available and a restart is
+                # required.
+                # Download available updates
+                download_updates()
+                # Offer the user the chance to defer
+                defer_until = deferral_ok_until()
+                if defer_until != False:
+                    if not should_defer(defer_until):
+                        prep_index_for_logout_install()
+                        force_update_on_logout()
+                        friendly_logout()
+                    else:
+                        sys.exit(0)
+                else:
+                    # User is not allowed to defer any longer
+                    # so require a logout
                     prep_index_for_logout_install()
                     force_update_on_logout()
-                    friendly_logout()
-                else:
-                    sys.exit(0)
+                    force_logout()
             else:
-                # User is not allowed to defer any longer
-                # so require a logout
-                prep_index_for_logout_install()
-                force_update_on_logout()
-                force_logout()
+                # Updates are available, but they don't
+                # require a restart - just install them
+                print "Installing updates which don't require a restart"
+                install_updates()
+                # and remove the deferral tracking file
+                remove_deferral_tracking_file()
+                sys.exit(0)
         else:
-            # Updates are available, but they don't
-            # require a restart - just install them
-            install_updates()
-            # and remove the deferral tracking file
+            print "No Updates"
             remove_deferral_tracking_file()
             sys.exit(0)
-    else:
-        print "No Updates"
-        remove_deferral_tracking_file()
-        sys.exit(0)
+    except KeyboardInterrupt:
+        # If any of the softwareupdate commands times out
+        # we receive a KeyboardInterrupt
+        print "Giving up!"
+        sys.exit(255)
+
+
+def cmd_with_timeout(cmd, timeout):
+    # Run a command, kill it and throw an Exception
+    # in the main thread if it doesn't complete
+    # within <timeout> seconds.
+    # stdout and stderr will be returned together.
     
+    def kill_proc(p):
+        p.kill()
+        # The timer is running in a separate thread, so
+        # use interrupt_main() to throw a KeyboardInterrupt
+        # back in the main thread.
+        thread.interrupt_main() 
+  
+    _proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    my_timer = Timer(timeout, kill_proc, [_proc])
+
+    try:
+        my_timer.start()
+        stdout = _proc.communicate()
+        return stdout
+    finally:
+        my_timer.cancel()
+
 
 def get_updates():
     print "Checking for updates"
     
     # Get all recommended updates
-    list = subprocess.check_output([ SWUPDATE, '-l', '-r' ], stderr=subprocess.STDOUT)
-    return list
+    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 60)
+    return list[0].split("\n")
 
 
 def download_updates():
     print "Downloading updates"
     # Download applicable updates
-    subprocess.check_call([ SWUPDATE, '-d', '-r' ])
+    cmd_with_timeout([ SWUPDATE, '-d', '-r' ], 600)
     
 def prep_index_for_logout_install():
     # The ProductPaths key of the index file
@@ -133,9 +167,13 @@ def force_update_on_logout():
     
     # Kick the softwareupdate daemon
     subprocess.call([ 'launchctl', 'unload', SW_LAUNCHDAEMON ])
+    subprocess.call([ 'launchctl', 'unload', SWHELPER_LAUNCHDAEMON ])
     sleep(2) 
     subprocess.call([ 'launchctl', 'load', SW_LAUNCHDAEMON ])
+    subprocess.call([ 'launchctl', 'load', SWHELPER_LAUNCHDAEMON ])
     
+     
+
 def deferral_ok_until():
     now = datetime.datetime.now()
 
@@ -204,8 +242,9 @@ def updates_available(updates):
     return not 'No new software available.' in updates
 
 def install_updates():
-    subprocess.check_call([ SWUPDATE, '-i', '-r' ])
-
+    # Half an hour should be sufficient to install
+    # updates, hopefully!
+    cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 1800)
 
     
 main()
