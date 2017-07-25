@@ -39,8 +39,6 @@ INDEX = '/Library/Updates/index.plist'
 TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
-SW_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.softwareupdated.plist'
-SWHELPER_LAUNCHDAEMON = '/System/Library/LaunchDaemons/com.apple.suhelperd.plist'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 
 if len(sys.argv) > 3:
@@ -129,7 +127,7 @@ def get_updates():
     print "Checking for updates"
     
     # Get all recommended updates
-    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 60)
+    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 120)
     return list[0].split("\n")
 
 
@@ -165,13 +163,9 @@ def force_update_on_logout():
     with open(TRIGGERFILE, 'w'):
         pass
     
-    # Kick the softwareupdate daemon
-    subprocess.call([ 'launchctl', 'unload', SW_LAUNCHDAEMON ])
-    subprocess.call([ 'launchctl', 'unload', SWHELPER_LAUNCHDAEMON ])
+    # Kick the daemon which watches for the trigger file
+    subprocess.call([ 'killall', '-HUP', 'suhelperd' ])
     sleep(2) 
-    subprocess.call([ 'launchctl', 'load', SW_LAUNCHDAEMON ])
-    subprocess.call([ 'launchctl', 'load', SWHELPER_LAUNCHDAEMON ])
-    
      
 
 def deferral_ok_until():
