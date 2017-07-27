@@ -58,7 +58,7 @@ def main():
     # we minimise the number of times we have to run the
     # softwareupdate command - it's slow.
     try: 
-        list = get_updates()
+        list = get_update_list()
      
         if updates_available(list):
             if restart_required(list):
@@ -124,7 +124,7 @@ def cmd_with_timeout(cmd, timeout):
         my_timer.cancel()
 
 
-def get_updates():
+def get_update_list():
     print "Checking for updates"
     
     # Get all recommended updates
