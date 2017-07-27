@@ -42,13 +42,13 @@ DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
-if len(sys.argv) > 3:
-    DEFER_LIMIT = sys.argv[4]
-else:
-    DEFER_LIMIT = 7 # 7 Days by default
-
 
 def process_updates():
+    if len(sys.argv) > 3:
+        DEFER_LIMIT = sys.argv[4]
+    else:
+        DEFER_LIMIT = 3 # 7 Days by default
+ 
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         print "QuickAdd package appears to be running - will exit"
