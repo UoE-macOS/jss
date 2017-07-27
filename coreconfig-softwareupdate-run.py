@@ -48,7 +48,7 @@ else:
     DEFER_LIMIT = 7 # 7 Days by default
 
 
-def main():
+def process_updates():
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         print "QuickAdd package appears to be running - will exit"
@@ -242,8 +242,10 @@ def updates_available(updates):
 
 def install_updates():
     # Half an hour should be sufficient to install
-    # updates, hopefully!
+    # updates, hopefully! NB this is only called for
+    # updates which don't require a restart.
     cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 1800)
 
     
-main()
+if __name__ == "__main__":
+    process_updates()
