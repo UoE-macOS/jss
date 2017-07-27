@@ -181,10 +181,10 @@ def deferral_ok_until():
         df = plistlib.readPlist(DEFER_FILE)
         ok_until = df['DeferOkUntil']
         if now < ok_until:
-            print "OK to defer!"
+            print "OK to defer until {}".format(ok_until)
             return ok_until
         else:
-            print "Not OK to defer."
+            print "Not OK to defer ({}) is in the past".format(ok_until)
             return False
     else:
         # Create the file, and write into it
@@ -192,7 +192,7 @@ def deferral_ok_until():
         defer_date = now + limit
         plist = { 'DeferOkUntil': defer_date }
         plistlib.writePlist(plist, DEFER_FILE)
-        print "Created deferral file - OK to defer"
+        print "Created deferral file - Ok to defer until {}".format(defer_date)
         return defer_date
 
 def should_defer(defer_until):
