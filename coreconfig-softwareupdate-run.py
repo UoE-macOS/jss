@@ -42,7 +42,7 @@ DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
-if len(sys.argv) > 3
+if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
 else:
     DEFER_LIMIT = 3 # 7 Days by default
