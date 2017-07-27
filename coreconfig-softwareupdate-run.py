@@ -42,13 +42,13 @@ DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
+if len(sys.argv) > 3
+    DEFER_LIMIT = sys.argv[4]
+else:
+    DEFER_LIMIT = 3 # 7 Days by default
 
+    
 def process_updates():
-    if len(sys.argv) > 3:
-        DEFER_LIMIT = sys.argv[4]
-    else:
-        DEFER_LIMIT = 3 # 7 Days by default
- 
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         print "QuickAdd package appears to be running - will exit"
@@ -204,10 +204,12 @@ def should_defer(defer_until):
                               '-timeout', '99999',
                               '-description', "One or more software updates require a restart.\nIt is essential that software updates are applied in a timely fashion.\n\nYou can either restart now or defer.\n\nAfter %s you will be required to restart." % defer_until.strftime( "%a, %d %b %H:%M:%S"),
                               '-button1', 'Restart now',
-                              '-button2', 'Restart later' ])
+                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if answer == 2: # 0 = now, 2 = defer
+        print "User elected to defer update"
         return True
     else:
+        print "User permitted immediate update"
         return False
         
 def force_logout():
