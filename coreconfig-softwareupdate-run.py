@@ -169,7 +169,7 @@ def force_update_on_logout():
     # mechanism. This seems to be necesaary to get Software Update
     # to realise that the needed updates have been downloaded 
     for process in SWUPDATE_PROCESSES:
-        err = subprocess.call([ 'killall', '-HUP', process ], stderr=PIPE, stdout=PIPE)
+        err = subprocess.call([ 'killall', '-HUP', process ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     sleep(5) 
      
 
