@@ -40,6 +40,7 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
+SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
 if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
@@ -147,6 +148,7 @@ def prep_index_for_logout_install():
     swindex['InstallAtLogout'] = []
 
     for product in swindex['ProductPaths'].keys():
+        print "Setting up {} to install at logout".format(product)
         swindex['InstallAtLogout'].append(product)
 
     plistlib.writePlist(swindex, INDEX)
@@ -163,9 +165,12 @@ def force_update_on_logout():
     with open(TRIGGERFILE, 'w'):
         pass
     
-    # Kick the daemon which watches for the trigger file
-    subprocess.call([ 'killall', '-HUP', 'suhelperd' ])
-    sleep(2) 
+    # Kick the various daemons belonging to the softwareupdate 
+    # mechanism. This seems to be necesaary to get Software Update
+    # to realise that the needed updates have been downloaded 
+    for process in SWUPDATE_PROCESSES:
+        err = subprocess.call([ 'killall', '-HUP', process ], stderr=PIPE, stdout=PIPE)
+    sleep(5) 
      
 
 def deferral_ok_until():
