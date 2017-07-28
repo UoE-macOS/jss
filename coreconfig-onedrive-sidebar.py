@@ -81,7 +81,7 @@ def onedrive_is_configured():
     result = 0
     try:
         result = subprocess.check_output(['defaults', 'read', 'com.microsoft.OneDrive', 'IsBusinessProvisioned'])
-    except CalledProcessError: # Key didn't exist
+    except subprocess.CalledProcessError: # Key didn't exist
         return False
     if result.strip() == '1':
         return True
