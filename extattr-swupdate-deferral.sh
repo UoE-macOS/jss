@@ -12,6 +12,10 @@
 #         and that date is the last date on which the user will be 
 #         allowed to defer installation
 #
+# NB: this extension attribute only makes any sense if you are using
+#     the coreconfig-softwareupdate-run.py script also found in this
+#     git repo.s
+#
 #######################################################################
 defer_date=$(/usr/libexec/PlistBuddy -c "Print DeferOkUntil" \
              /var/db/UoESoftwareUpdateDeferral 2>/dev/null)
