@@ -40,6 +40,7 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
+NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
 if len(sys.argv) > 3:
@@ -240,8 +241,9 @@ def restart_required(updates):
 
 def updates_available(updates):
     # Returns True if there are not no updates :)
-    return not 'No new software available.' in updates
-
+    return not ( 'No new software available.' in updates or
+                 NO_NETWORK_MSG in updates)
+                 
 def install_updates():
     # Half an hour should be sufficient to install
     # updates, hopefully! NB this is only called for
