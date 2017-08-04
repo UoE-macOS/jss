@@ -40,14 +40,16 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
+NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
+SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 
 if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
 else:
-    DEFER_LIMIT = 7 # 7 Days by default
+    DEFER_LIMIT = 3 # 7 Days by default
 
-
-def main():
+    
+def process_updates():
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         print "QuickAdd package appears to be running - will exit"
@@ -57,7 +59,7 @@ def main():
     # we minimise the number of times we have to run the
     # softwareupdate command - it's slow.
     try: 
-        list = get_updates()
+        list = get_update_list()
      
         if updates_available(list):
             if restart_required(list):
@@ -123,7 +125,7 @@ def cmd_with_timeout(cmd, timeout):
         my_timer.cancel()
 
 
-def get_updates():
+def get_update_list():
     print "Checking for updates"
     
     # Get all recommended updates
@@ -147,6 +149,7 @@ def prep_index_for_logout_install():
     swindex['InstallAtLogout'] = []
 
     for product in swindex['ProductPaths'].keys():
+        print "Setting up {} to install at logout".format(product)
         swindex['InstallAtLogout'].append(product)
 
     plistlib.writePlist(swindex, INDEX)
@@ -163,9 +166,12 @@ def force_update_on_logout():
     with open(TRIGGERFILE, 'w'):
         pass
     
-    # Kick the daemon which watches for the trigger file
-    subprocess.call([ 'killall', '-HUP', 'suhelperd' ])
-    sleep(2) 
+    # Kick the various daemons belonging to the softwareupdate 
+    # mechanism. This seems to be necesaary to get Software Update
+    # to realise that the needed updates have been downloaded 
+    for process in SWUPDATE_PROCESSES:
+        err = subprocess.call([ 'killall', '-HUP', process ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    sleep(5) 
      
 
 def deferral_ok_until():
@@ -176,10 +182,10 @@ def deferral_ok_until():
         df = plistlib.readPlist(DEFER_FILE)
         ok_until = df['DeferOkUntil']
         if now < ok_until:
-            print "OK to defer!"
+            print "OK to defer until {}".format(ok_until)
             return ok_until
         else:
-            print "Not OK to defer."
+            print "Not OK to defer ({}) is in the past".format(ok_until)
             return False
     else:
         # Create the file, and write into it
@@ -187,7 +193,7 @@ def deferral_ok_until():
         defer_date = now + limit
         plist = { 'DeferOkUntil': defer_date }
         plistlib.writePlist(plist, DEFER_FILE)
-        print "Created deferral file - OK to defer"
+        print "Created deferral file - Ok to defer until {}".format(defer_date)
         return defer_date
 
 def should_defer(defer_until):
@@ -199,10 +205,12 @@ def should_defer(defer_until):
                               '-timeout', '99999',
                               '-description', "One or more software updates require a restart.\nIt is essential that software updates are applied in a timely fashion.\n\nYou can either restart now or defer.\n\nAfter %s you will be required to restart." % defer_until.strftime( "%a, %d %b %H:%M:%S"),
                               '-button1', 'Restart now',
-                              '-button2', 'Restart later' ])
+                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if answer == 2: # 0 = now, 2 = defer
+        print "User elected to defer update"
         return True
     else:
+        print "User permitted immediate update"
         return False
         
 def force_logout():
@@ -233,12 +241,15 @@ def restart_required(updates):
 
 def updates_available(updates):
     # Returns True if there are not no updates :)
-    return not 'No new software available.' in updates
-
+    return not ( 'No new software available.' in updates or
+                 NO_NETWORK_MSG in updates)
+                 
 def install_updates():
     # Half an hour should be sufficient to install
-    # updates, hopefully!
+    # updates, hopefully! NB this is only called for
+    # updates which don't require a restart.
     cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 1800)
 
     
-main()
+if __name__ == "__main__":
+    process_updates()
