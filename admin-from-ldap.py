@@ -27,7 +27,7 @@ def main(args):
         # if we have been called with '--get-admins' just print the users 
         # who should be admins, then exit. 
         if len(args) > 6 and args[6] == '--get-admins':
-            print " ".join(get_group_members(computer_name(), LDAP_SERVER, LDAP_BASE))
+            print get_ldap_group_members(computer_name(), LDAP_SERVER, LDAP_BASE)
             sys.exit(0)
         else:
             # Call this script, as the current console user, to utilise their Kerberos Credentials Cache
@@ -35,17 +35,19 @@ def main(args):
             # add if it were calling us.
             members = subprocess.check_output(['launchctl', 'asuser', str(uid(user)), sys.argv[0],
                                                 'dummy', 'dummy', 'dummy', LDAP_SERVER, LDAP_BASE,
-						'--get-admins']).strip().split(" ") 
-           
-            if len(members) > 0: 
-                # Make all members of the LDAP group (if found) local admins 
-                for mem in members:
-                    if user_is_local_user(mem):
-                        if not user_is_member_of('admin', mem):
-                            print "Adding {} to group {}".format(mem, 'admin')
-                            add_user_to_group('admin', mem)
-                    else:
-                        print "Not a local user:", mem
+						'--get-admins']).strip()
+            # No group or no members - bail!
+            if members in ["NOGROUP", "NOMEMBERS"]:
+                sys.exit(0)
+
+            # Make all members of the LDAP group (if found) local admins 
+            for mem in members.split(','):
+                if user_is_local_user(mem):
+                    if not user_is_member_of('admin', mem):
+                        print "Adding {} to group {}".format(mem, 'admin')
+                        add_user_to_group('admin', mem)
+                else:
+                    print "Not a local user:", mem
             
             # Remove any local admins who are not members of the LDAP group (FIXME: this 
             # should probably be more nuanced)  
@@ -84,7 +86,7 @@ def user_has_tgt(user):
     except subprocess.CalledProcessError:
        return False
     
-def get_group_members(group, server, base):
+def get_ldap_group_members(group, server, base):
     # Search LDAP 'server' for a group named 'group' anywhere under
     # search base 'base' and return a list of the CNs of group
     # members.
@@ -92,9 +94,16 @@ def get_group_members(group, server, base):
     ldap_result_id = con.search(base, ldap.SCOPE_SUBTREE, 'cn=' + group, ['member'])
     result_type, result_data = con.result(ldap_result_id)
     members = []
-    for mem in result_data[0][1]['member']:
-       members.append(mem.split(',')[0].replace('CN=',""))
-    return members 
+    try:
+        for mem in result_data[0][1]['member']:
+            members.append(mem.split(',')[0].replace('CN=',""))
+            return ",".join(members) 
+    except KeyError:
+        print >> sys.stderr, "LDAP group {} has no members".format(group)
+        return "NOMEMBERS" 
+    except IndexError:
+        print >> sys.stderr,"No group {} found in LDAP".format(group)
+        return "NOGROUP"
 
 def get_current_admins():
     raw = subprocess.check_output(['dscl', '.', '-read', '/Groups/admin', 'GroupMembership'])    
