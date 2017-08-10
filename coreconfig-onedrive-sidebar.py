@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 #############################################################
 #
 # If OneDrive hasn't been configured for Business Use, put a link to the
