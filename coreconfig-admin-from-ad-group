@@ -6,8 +6,8 @@
 # with the Computers name. NoMAD caches user AD group membership, so 
 # admin rights will remain, even when the machine is offsite.
 #
-# Date: Fri 23 Jun 2017 11:04:46 BST
-# Version: 0.1.6
+# Date: Tue 08 Aug 2017 11:04:46 BST
+# Version: 0.1.7
 # Creator: dsavage
 #
 ##################################################################
@@ -38,19 +38,31 @@ echo $Computer_Name
 Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep '/Users/' | awk '{print $2}'`
 
 # Path to the preference
-NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD"
+NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD.plist"
 
-if ! [ -e "$NoMAD_Path"* ];
+if ! [ -e "$NoMAD_Path" ];
 then
 	exit 0; # NoMAD hasn't launched
 fi
 
-# Change Auth_User to use Kerberos, so it isn't relient on the preference.
-Auth_User=`klist -v | grep "Principal:" | awk '{print $2}'`
+user_uid=`id -u "$User_Name"`
 
-if [ -z "$Auth_User" ];
+# Change Auth_User to use python to call the klist command as the shell just wasn't working.
+Auth_User=$(python - <<EOF
+import subprocess
+import os
+
+try:
+    subprocess.check_call(['launchctl', 'asuser', str($user_uid), 'klist', '-s'])
+    print "$User_Name@ED.AC.UK\n"
+except subprocess.CalledProcessError:
+    print "False\n"
+EOF
+)
+
+if [ "$Auth_User" == "False" ];
 then
-	exit 0; # No Kerberos ticket.
+	exit 255; # No Kerberos ticket.
 fi
 
 Admin_Group=`defaults read $NoMAD_Path "Groups" | grep -i "$Computer_Name" | awk -F '"' '{print $2}' | tr '[:upper:]' '[:lower:]'`
