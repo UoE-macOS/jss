@@ -11,10 +11,16 @@
 # days. DEFER_LIMIT can be set as ${4} in the JSS.
 # After DEFER_LIMIT days the warning can't be dismissed until the user agrees to
 # install the updates.
+#
 # We use Apple's supported-ish mechanism for setting updates to install
 # at logout so that we don't get into a situation of installing updates
 # which require a reboot under the user, leaving the machine in a potentially
 # unstable state
+#
+# If no user is logged in at all (including via SSH), then we lock the
+# login screen and install any pending updates. No deferral is offered
+# or honoured if we install at the login window. Care should be taken
+# as to when this policy runs!
 #
 # Date: @@DATE
 # Version: @@VERSION
@@ -85,11 +91,14 @@ def process_updates():
                         prep_index_for_logout_install()
                         force_update_on_logout()
                         force_logout()
-                else: # Nobody is logged in...
+                elif nobody_logged_in(): # Nobody is logged in...
                     print "Nobody is logged in - downloading updates"
                     download_updates()
                     print "Starting unattended install..."
                     unattended_install()
+                else:
+                    print "Updates require a restart but someone is logged in remotely - aborting"
+                    sys.exit(0)
             else:
                 # Updates are available, but they don't
                 # require a restart - just install them
@@ -105,7 +114,7 @@ def process_updates():
     except KeyboardInterrupt:
         # If any of the softwareupdate commands times out
         # we receive a KeyboardInterrupt
-        print "Giving up!"
+        print "Command timed out: giving up!"
         sys.exit(255)
 
 
@@ -139,8 +148,8 @@ def unattended_install():
     if nobody_logged_in():
         lock_out_loginwindow()
         install_recommended_updates()
-    
-        #authenticated_reboot()
+        # We should make this authenticated...
+        unauthenticated_reboot()
     else:
         print "Found somebody logged in, aborting unattended install"
 
@@ -291,7 +300,7 @@ def nobody_logged_in():
     # If the 'w' command only returns 2 lines of output
     # the nobody is on the console or a tty
     # also check console user for belt and braces
-    return ( len(subprocess.check_output(['w']).split("\n")) < 3 and
+    return ( len(subprocess.check_output(['w']).strip().split("\n")) < 3 and
              console_user() == None )
         
     
