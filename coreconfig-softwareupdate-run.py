@@ -65,25 +65,31 @@ def process_updates():
      
         if updates_available(list):
             if restart_required(list):
-                # Updates are available and a restart is
-                # required.
-                # Download available updates
-                download_updates()
-                # Offer the user the chance to defer
-                defer_until = deferral_ok_until()
-                if defer_until != False:
-                    if not should_defer(defer_until):
+                if console_user(): # If someone is logged in..
+                    # Updates are available and a restart is
+                    # required.
+                    # Download available updates
+                    download_updates()
+                    # Offer the user the chance to defer
+                    defer_until = deferral_ok_until()
+                    if defer_until != False:
+                        if not should_defer(defer_until):
+                            prep_index_for_logout_install()
+                            force_update_on_logout()
+                            friendly_logout()
+                        else:
+                            sys.exit(0)
+                    else:
+                        # User is not allowed to defer any longer
+                        # so require a logout
                         prep_index_for_logout_install()
                         force_update_on_logout()
-                        friendly_logout()
-                    else:
-                        sys.exit(0)
-                else:
-                    # User is not allowed to defer any longer
-                    # so require a logout
-                    prep_index_for_logout_install()
-                    force_update_on_logout()
-                    force_logout()
+                        force_logout()
+                else: # Nobody is logged in...
+                    print "Nobody is logged in - downloading updates"
+                    download_updates()
+                    print "Starting unattended install..."
+                    unattended_install()
             else:
                 # Updates are available, but they don't
                 # require a restart - just install them
@@ -170,7 +176,7 @@ def lock_out_loginwindow():
                            '-F', '-S', 'LoginWindow',
                            HELPER_AGENT ])
     
-def  get_update_list():
+def get_update_list():
     print "Checking for updates"
     
     # Get all recommended updates
