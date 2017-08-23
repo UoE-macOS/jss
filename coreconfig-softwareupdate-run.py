@@ -37,6 +37,7 @@ import datetime
 import thread
 from time import sleep
 from threading import Timer
+from datetime import datetime
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 SWUPDATE = '/usr/sbin/softwareupdate'
@@ -50,6 +51,8 @@ QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
+QUIET_HOURS_START = 23
+QUIET_HOURS_END = 5
 
 if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
@@ -141,6 +144,16 @@ def cmd_with_timeout(cmd, timeout):
     finally:
         my_timer.cancel()
 
+
+def is_quiet_hours(start, end):
+    now_hour = datetime.now().hour
+    if (start < end):
+        return start <= now_hour < end
+    else:
+        # Quiet hours run over midnight
+        return (start <= now_hour) or (now_hour < end)
+        
+      
 def unattended_install():
     # Do a bunch of safety checks and if all is OK,
     # try to install updates unattended
