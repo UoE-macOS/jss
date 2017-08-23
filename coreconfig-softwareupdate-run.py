@@ -31,6 +31,7 @@ import datetime
 import thread
 from time import sleep
 from threading import Timer
+from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 SWUPDATE = '/usr/sbin/softwareupdate'
 PLISTBUDDY = '/usr/libexec/PlistBuddy'
@@ -42,6 +43,7 @@ DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
+HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
 
 if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
@@ -86,7 +88,7 @@ def process_updates():
                 # Updates are available, but they don't
                 # require a restart - just install them
                 print "Installing updates which don't require a restart"
-                install_updates()
+                install_recommended_updates()
                 # and remove the deferral tracking file
                 remove_deferral_tracking_file()
                 sys.exit(0)
@@ -124,8 +126,51 @@ def cmd_with_timeout(cmd, timeout):
     finally:
         my_timer.cancel()
 
+def unattended_install():
+    # Do a bunch of safety checks and if all is OK,
+    # try to install updates unattended
+    # Safety checks here?
+    if nobody_logged_in():
+        lock_out_loginwindow()
+        install_recommended_updates()
+    
+        #authenticated_reboot()
+    else:
+        print "Found somebody logged in, aborting unattended install"
 
-def get_update_list():
+def unauthenticated_reboot():
+    # Will bring us back to firmware login screen
+    # if filevault is enabled.
+    subprocess.check_call(['/sbin/reboot'])
+
+def create_lgwindow_launchagent():
+    # Create a LaunchAgent to lock out the loginwindow
+    # We create it 'Disabled' and leave it that way, loading it
+    # with launchctl '-F' to ensure it's never loaded accidentally.
+    contents = { "Label": "uk.ac.ed.mdp.jamfhelper-swupdate.plist",
+                 "Disabled": True,
+                 "LimitLoadToSessionType": [ 'LoginWindow' ],
+                 "ProgramArguments": [ JAMFHELPER,
+                                       '-windowType', 'fs',
+                                       '-heading', 'Installing macOS updates...',
+                                       '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
+                                       '-description', 'Please do not turn off this computer.' ],
+                 "RunAtLoad": True,
+                 "keepAlive": True
+                 }   
+
+    # Just overwrite it if it's already there
+    plistlib.writePlist(contents, HELPER_AGENT)
+                                       
+def lock_out_loginwindow():
+    # Make sure our agent exists
+    create_lgwindow_launchagent()
+    # Then load it
+    subprocess.check_call(['launchctl', 'load',
+                           '-F', '-S', 'LoginWindow',
+                           HELPER_AGENT ])
+    
+def  get_update_list():
     print "Checking for updates"
     
     # Get all recommended updates
@@ -229,8 +274,20 @@ def remove_deferral_tracking_file():
         os.remove(DEFER_FILE)
         print "Removed deferral tracking file"
     
+
 def console_user():
-    return subprocess.check_output([ 'ls', '-l', '/dev/console' ]).split()[2]
+    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+    username = [username, None][username in [u"loginwindow", None, u""]]
+    return username
+
+
+def nobody_logged_in():
+    # If the 'w' command only returns 2 lines of output
+    # the nobody is on the console or a tty
+    # also check console user for belt and braces
+    return ( len(subprocess.check_output(['w']).split("\n")) < 3 and
+             console_user() == None )
+        
     
 def friendly_logout():
     user = console_user()
@@ -244,11 +301,10 @@ def updates_available(updates):
     return not ( 'No new software available.' in updates or
                  NO_NETWORK_MSG in updates)
                  
-def install_updates():
-    # Half an hour should be sufficient to install
-    # updates, hopefully! NB this is only called for
-    # updates which don't require a restart.
-    cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 1800)
+def install_recommended_updates():
+    # An hour should be sufficient to install
+    # updates, hopefully! 
+    cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 3600)
 
     
 if __name__ == "__main__":
