@@ -1,13 +1,14 @@
 #!/bin/bash
+
 ###################################################################
 #
 # This script is run at enrollmentcomplete on non-DEP machines.
 # We assume that the quickadd package is being run by a user who
 # may or may not be the intended primary user of the machine.
 #
-# The script will ask for the username of the primary user and, if
-# a password is provided which matches our dircetory service and there
-# is no existing account for that user on this machine, will
+# The script will ask for the username of the primary user (if run when a user 
+# is logged on) and, if a password is provided which matches our dircetory service
+# and there is no existing account for that user on this machine, will
 # then create a local account for that user. If the machine is a
 # laptop it is named with a compbination of that user's school code
 # and the serial number. If it is a desktop the name is looked up
@@ -15,12 +16,13 @@
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: "Tue 29 Aug 2017 14:32:51 BST"
+# Version: 0.1.5
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: dsavage
 #
 ##################################################################
+
 
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
@@ -29,12 +31,11 @@ LDAP_FULLNAME="cn"
 LDAP_UIDNUM="uidNumber"
 
 KRB_REALM='ED.AC.UK'
-
 EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
+
 LOCK_FILE="/var/run/UoEQuickAddRunning"
 
 JSS_URL="$(defaults read /Library/Preferences/com.jamfsoftware.jamf.plist jss_url)"
-
 
 check_jss_available() {
   # Can we see the JSS?
@@ -52,7 +53,6 @@ check_jss_available() {
     true
   fi
 } 
-
 
 get_fullname() {
    logger "$0: Looking for user fullname"
@@ -82,7 +82,7 @@ get_username() {
       end timeout
   end tell
   return uun
-  EOF
+EOF
      )
   until $(valid_username ${uun})
   do
@@ -106,7 +106,7 @@ get_password() {
       end timeout
   end tell
   return the_answer
-  EOF
+EOF
      )"
   until  [ $? != 0 ] || $(got_krb_tgt ${uun} "${pwd}") 
   do
@@ -140,6 +140,109 @@ got_krb_tgt() {
   printf '%s' "${pwd}" | kinit --password-file=STDIN "${uun}@${KRB_REALM}"
 }
 
+delete_lcfg() {
+if [ $dialogue == "YES" ]; then
+	# Display a message in the background...
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Removing LCFG'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are removing the previous management framework.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
+	/usr/local/bin/jamf policy -event Delete-LCFG
+	killall jamfHelper
+else
+/usr/local/bin/jamf policy -event Delete-LCFG
+fi
+}
+
+health_check() {
+if [ $dialogue == "YES" ]; then
+	# Display a message in the background...
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'System Health Check'\
+ -icon '/Applications/Utilities/Disk Utility.app/Contents/Resources/AppIcon.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are verifying your disk and clearing caches.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
+	/usr/local/bin/jamf policy -event Health-Check
+	killall jamfHelper
+else
+	/usr/local/bin/jamf policy -event Health-Check
+fi
+}
+
+bind_ad() {
+/usr/local/bin/jamf policy -event Bind-AD
+}
+
+trigger_core_apps() {
+if [ $dialogue == "YES" ]; then
+	# Display this message but send the jamfhelper process into the background
+	# so that execution continues
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Checking Core Applications'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are ensuring that your core applications are installed and up-to-date.\\n\\nThis will take several minutes.\\n\\nPlease do not restart your computer.)" &
+	/usr/local/bin/jamf policy -event Core-Apps
+	killall jamfHelper
+else
+	/usr/local/bin/jamf policy -event Core-Apps
+fi
+}
+
+trigger_os_installer() {
+if [ $dialogue == "YES" ]; then
+	# Display this message but send the jamfhelper process into the background
+	# so that execution continues
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Checking Core Applications'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are now putting the new macOS installer in-place.\\n\\nThis should take 20 to 30 minutes.\\n\\nYou will be able to launch the upgrade from Self Service once this installation is complete.\\n\\nPlease do not restart your computer.)" &
+	/usr/local/bin/jamf policy -event OS-Installer
+	killall jamfHelper
+else
+	/usr/local/bin/jamf policy -event OS-Installer
+fi
+}
+
+do_restart () {
+username=`ls -l /dev/console | awk '{print $3}'`
+
+if [ -z $username ] || [ "$username" == '' ]; then
+	dialogue="NO"
+else
+	dialogue="YES"
+fi
+    
+if [ $dialogue == "YES" ]; then
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+  -windowType utility\
+  -title 'UoE Mac Supported Desktop'\
+  -heading 'Please restart'\
+  -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+  -description "$(echo -e Core installation complete.\\n\\nPlease restart and log in as ${uun} to complete the setup.)"\
+  -timeout 99999\
+  -button1 'Restart now'
+
+# We are done - delete our lock file
+rm "${LOCK_FILE}"
+# We didn't give the user a choice, so...
+reboot
+else
+rm "${LOCK_FILE}"
+reboot
+fi
+}
+
 get_mobility() {
   product_name=$(ioreg -l | awk '/product-name/ { split($0, line, "\""); printf("%s\n", line[4]); }')
 
@@ -155,17 +258,18 @@ get_mobility() {
 }
 
 get_serial() {
-  serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}')
+  # Full serial is a bit long, use the last 8 chars instead.
+  serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
   echo ${serial_no}
   logger "$0: Serial No: ${serial_no}"
 }
 
 get_school() {
   uun=${1}
-  school_code=$(ldapsearch -x -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
-        -s sub "(uid=${uun})" "${LDAP_SCHOOL}" | awk -F ': ' '/^'"${LDAP_SCHOOL}"'/ {print $2}')
-  
-  # Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation 
+  school_code=$(ldapsearch -x -H "${LDAP_SERVER}" -b"${LDAP_BASE}" -s sub "(uid=${uun})" "${LDAP_SCHOOL}" | awk -F ': ' '/^'"${LDAP_SCHOOL}"'/ {print $2}')
+        
+  # Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
+  [ -z "${school_code}" ] && school_code="Unknown"
   echo ${school_code}
   logger "$0: School Code: ${school_code}"
 }
@@ -176,16 +280,19 @@ get_macaddr() {
   echo ${macaddr}
 }
 
+
 get_edlan_dnsname() {
   mac=$(get_macaddr)
-  dnsname=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) 
+  dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) 
   # Remove anything potentially dodgy 
-  dnsname=echo ${dnsname} | tr -cd "[[:alnum:]]-_."
+  dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
   echo ${dnsname}
   logger "$0: DNS Name: ${dnsname}"
 }
 
-set_machine_name() {
+set_computer_name() {
+uun=${1}
+if [ $dialogue == "YES" ]; then
   mobility=$(get_mobility)
   school="$(get_school ${uun})"
   case $mobility in
@@ -207,6 +314,9 @@ set_machine_name() {
   /usr/sbin/scutil --set ComputerName "${name}"
   /usr/sbin/scutil --set HostName "${name}"
   logger "$0: Set machine name to ${name}"
+else
+	/usr/local/bin/jamf policy -event Set-Desktop-Name
+fi
 }
 
 has_local_account() {
@@ -222,6 +332,26 @@ has_local_account() {
   fi
 }
 
+create_mobile_account() {
+	logger "$0: Creating mobile account for ${uun}"
+	uun="${1}"
+	if [ -z "${uun}" ] || [ "${uun}" == '' ]; then
+	    logger "$0: Something went wrong, no username passed xx ${uun} xx"
+        return 255
+	else
+	    mkdir /Users/$uun
+	    chown -R $uun /Users/$uun
+	    /System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -v -n $uun
+	fi
+
+    create_check=`dscl . -read /Users/${uun} RecordName`
+    if [ "${create_check}" == "RecordName: ${uun}" ]; then
+        return 0
+    else
+        logger "$0: Something went wrong, could not create mobile account xx ${uun} xx. Machine may not be bound to AD."
+        return 255
+    fi
+}
 
 create_local_account() {
   logger "$0: Creating local account for ${uun}"
@@ -237,6 +367,8 @@ create_local_account() {
   dscl . -create /Users/${uun} UniqueID "$(get_uid_num ${uun})"
   dscl . -create /Users/${uun} PrimaryGroupID 20
   dscl . -create /Users/${uun} NFSHomeDirectory /Users/${uun}
+  # Create the home folder
+  createhomedir -c -u $uun
   
   logger "$0: Setting password for ${uun}"
   # Avoid passing the password on the commandline
@@ -269,17 +401,10 @@ EOT
   else
     return 255
   fi
-  
 }
 
 update_jss() {
   /usr/local/bin/jamf recon -endUsername ${1}
-}
-
-trigger_core_apps() {
-  # trigger the 'core-apps' event which will kick off the
-  # installation of our core applications
-  /usr/local/bin/jamf policy -event core-apps
 }
 
 warn_no_user_account() {
@@ -321,45 +446,89 @@ EOT
   
 }
 
-delete_lcfg() {
-	# Display a message in the background...
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- -windowType utility\
- -title 'UoE Mac Supported Desktop'\
- -heading 'Removing LCFG'\
- -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- -timeout 99999\
- -description "$(echo -e We are removing the previous management framework.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
-
-	/usr/local/bin/jamf policy -event delete-lcfg
-
-	killall jamfHelper
-}
-
-	
-### Execution starts here ###
-check_jss_available
-
 # Drop a lock file so that other processes know
 # we are running
 
 touch "${LOCK_FILE}"
 
-uun=$(get_username)
+# Is there a user logged in
+username=`ls -l /dev/console | awk '{print $3}'`
+dialogue=""
 
-set_machine_name ${uun}
+# What OS is running?
+osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
+
+# Determine installation process
+cmd="installer -pkg /Library/MacMDP/Downloads/QuickAdd-0.1-1.pkg"
+cmdinstall=`ps -A | grep "$cmd" | grep -v "grep"`
+
+if [ -z $username ] || [ "$username" == '' ]; then
+	dialogue="NO"
+else
+	dialogue="YES"
+fi
+
+if [ "$cmdinstall" == '' ] || [ -z $cmdinstall ]; then
+	dialogue="YES"
+else
+	dialogue="NO"
+fi
+
+usertype=""
+  mobility=$(get_mobility)
+  case $mobility in
+    mobile)
+      usertype=Local
+    ;;
+    desktop)
+	usertype=Mobile
+    ;;
+  esac 
+
+if [ $dialogue == "YES" ]; then
+uun=$(get_username)
+else
+uun=""
+# No user logged in, so try the last 5 users
+lastusers=$(last -9 | awk '{print $1}')
+for user in $lastusers
+do
+	if ! [ "$(get_school ${user})" == "Unknown" ] ||
+	 ! [ -z "$(get_school ${user})" ]
+	then
+	uun=$user
+	fi
+done
+fi
+
+# Set the computers name
+set_computer_name ${uun}
 
 if ! $(has_local_account ${uun})
 then
+  if [ $usertype == "Mobile" ]
+  then
+  bind_ad
+  create_mobile_account ${uun}
+  fi
+  if [ $usertype == "Local" ] || [ -z $usertype ]
+  then
   create_local_account ${uun}
+  fi
   if [ ${?} != 0 ]
   then
+  	if [ $dialogue == "YES" ]; then
     warn_no_user_account ${uun}
+    fi
   else
+  	if [ $dialogue == "YES" ]; then
     success_message ${uun}
+    fi
   fi  
 else
+  if [ $dialogue == "YES" ]; then
   success_message_existing_account ${uun}
+  fi
 fi
 
 # If an old LCFG installation exists, delete it.
@@ -368,36 +537,38 @@ delete_lcfg
 # Run recon to let the JSS know who the primary user of this machine will be
 update_jss ${uun} 
 
-# Display this message but send the jamfhelper process into the background
-# so that execution continues
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- -windowType utility\
- -title 'UoE Mac Supported Desktop'\
- -heading 'Checking Core Applications'\
- -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- -timeout 99999\
- -description "$(echo -e We are ensuring that your core applications and system software are up to date.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
-
-# Run any policies that are triggered by the 'core-apps' event  
+# Run any policies that are triggered by the 'Core-Apps' event  
 trigger_core_apps
 
-# Run softwareupdate to install any recommended updates
-softwareupdate -i -r
+# Run any policies that are triggered by the 'OS-Installer' event  
 
-# CoreApps are done now, kill the info window.
-killall jamfHelper
+free_space=`diskutil info / | grep "Free Space" | awk '{print $4}' | awk -F "." '{print $1}'`
 
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
-  -windowType utility\
-  -title 'UoE Mac Supported Desktop'\
-  -heading 'Please restart'\
-  -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
-  -description "$(echo -e Core installation complete.\\n\\nPlease restart and log in as ${uun} to complete the setup.)"\
-  -timeout 99999\
-  -button1 'Restart now'
+if [ $osversion == "12" ] || [ -e /Applications/Install\ macOS\ Sierra.app ]; then
+	logger "$0: OS installer already in-place or OS on version 12."
+else
+    if [ $free_space -ge 25 ]; then
+	trigger_os_installer
+	else
+	logger "$0: Not enough free disk space to continue"
+	fi
+fi
 
-# We are done - delete our lock file
-rm "${LOCK_FILE}"
+# Cache offline policies for login items
+/usr/local/bin/jamf policy -event Login
+/usr/local/bin/jamf policy -event Dock
+/usr/local/bin/jamf policy -event LoginItem
 
-# We didn't give the user a choice, so...
-reboot
+health_check
+
+# Check if the Mac is already encryted and prompt so the key can be escrowed.
+fv_status=`fdesetup status | awk '{print $3}'`
+
+if [ "${fv_status}" == "On." ]; then
+	/usr/local/bin/jamf policy -event FileVault-Ctrl
+fi
+
+# Time to do a restart
+do_restart
+
+exit 0;
