@@ -37,7 +37,6 @@ import datetime
 import thread
 from time import sleep
 from threading import Timer
-from datetime import datetime
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 SWUPDATE = '/usr/sbin/softwareupdate'
@@ -73,13 +72,10 @@ def process_updates():
         list = get_update_list()
      
         if updates_available(list):
+            download_updates()
             if restart_required(list):
-                if console_user(): # If someone is logged in..
-                    # Updates are available and a restart is
-                    # required.
-                    # Download available updates
-                    download_updates()
-                    # Offer the user the chance to defer
+                if console_user(): 
+                    # User is logged in - ask if they want to defer
                     defer_until = deferral_ok_until()
                     if defer_until != False:
                         if not should_defer(defer_until):
@@ -95,9 +91,7 @@ def process_updates():
                         force_update_on_logout()
                         force_logout()
                 elif nobody_logged_in(): # Nobody is logged in...
-                    print "Nobody is logged in - downloading updates"
-                    download_updates()
-                    print "Starting unattended install..."
+                    print "Nobody is logged in - starting unattended install..."
                     unattended_install()
                 else:
                     print "Updates require a restart but someone is logged in remotely - aborting"
@@ -146,7 +140,7 @@ def cmd_with_timeout(cmd, timeout):
 
 
 def is_quiet_hours(start, end):
-    now_hour = datetime.now().hour
+    now_hour = datetime.datetime.now().hour
     if (start < end):
         return start <= now_hour < end
     else:
