@@ -52,6 +52,7 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_age
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
 QUIET_HOURS_START = 23
 QUIET_HOURS_END = 5
+MIN_BATTERY_LEVEL = 80
 
 if len(sys.argv) > 3:
     DEFER_LIMIT = sys.argv[4]
@@ -90,11 +91,13 @@ def process_updates():
                         prep_index_for_logout_install()
                         force_update_on_logout()
                         force_logout()
-                elif nobody_logged_in(): # Nobody is logged in...
-                    print "Nobody is logged in - starting unattended install..."
+                elif ( nobody_logged_in() and
+                       is_quiet_hours(QUIET_HOURS_START, QUIET_HOURS_END)):
+                    print "Nobody is logged in and we are in quiet hours - starting unattended install..."
                     unattended_install()
                 else:
-                    print "Updates require a restart but someone is logged in remotely - aborting"
+                    print ( "Updates require a restart but someone is logged in remotely "
+                            "or we are in quiet hours - aborting" )
                     sys.exit(0)
             else:
                 # Updates are available, but they don't
@@ -152,13 +155,13 @@ def unattended_install():
     # Do a bunch of safety checks and if all is OK,
     # try to install updates unattended
     # Safety checks here?
-    if nobody_logged_in():
+    if (using_ac_power() and min_battery_level(MIN_BATTERY_LEVEL)):  
         lock_out_loginwindow()
         install_recommended_updates()
         # We should make this authenticated...
         unauthenticated_reboot()
     else:
-        print "Found somebody logged in, aborting unattended install"
+        print "Power conditions were unacceptable for unattended installation."
 
 def unauthenticated_reboot():
     # Will bring us back to firmware login screen
@@ -328,6 +331,21 @@ def install_recommended_updates():
     # updates, hopefully! 
     cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 3600)
 
+def min_battery_level(min):
+    if is_a_laptop():
+        level = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[1].split(';')[0][:-1]
+        print "Battery level: {}".format(level)
+        return level >= min
+    else:
+        print "Not a laptop."
+
+def using_ac_power():
+    source = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[0].split(" ")[3]
+    print "Power source is: {}".format(source)
+    return source == 'AC'
+
+def is_a_laptop():
+    return subprocess.check_output(['sysctl', 'hw.model']).find(MacBook) > 0
     
 if __name__ == "__main__":
     process_updates()
