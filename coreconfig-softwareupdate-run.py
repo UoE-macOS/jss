@@ -19,8 +19,8 @@
 #
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates. No deferral is offered
-# or honoured if we install at the login window. Care should be taken
-# as to when this policy runs!
+# or honoured if we install at the login window, but the install will only
+# proceed if the hour is between QUIET_HOURS_START and QUIET_HOURS_END
 #
 # Date: @@DATE
 # Version: @@VERSION
