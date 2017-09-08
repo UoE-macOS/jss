@@ -20,7 +20,7 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates. No deferral is offered
 # or honoured if we install at the login window, but the install will only
-# proceed if the hour is between QUIET_HOURS_START and QUIET_HOURS_END
+# proceed if the hour is between QUIET_HOURS_START and QUIET_HOURS_END   
 #
 # Date: @@DATE
 # Version: @@VERSION
@@ -50,17 +50,20 @@ QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
 NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
 SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
-QUIET_HOURS_START = 23
-QUIET_HOURS_END = 5
-MIN_BATTERY_LEVEL = 80
 
-if len(sys.argv) > 3:
-    DEFER_LIMIT = sys.argv[4]
-else:
-    DEFER_LIMIT = 3 # 7 Days by default
-
+def get_args():
+    if len(sys.argv) == 8:
+        args = { 'DEFER_LIMIT': sys.argv[4],
+                 'QUIET_HOURS_START': sys.argv[5],
+                 'QUIET_HOURS_END': sys.argv[6],
+                 'MIN_BATTERY_LEVEL': sys.argv[7]
+        }
+    else:
+        print "You need to specify DEFER_LIMIT, QUIET_HOURS_START, QUIET_HOURS_AND and MIN_BATTERY_LEVEL"
+        sys.exit(255)
+    return args
     
-def process_updates():
+def process_updates(args):
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         print "QuickAdd package appears to be running - will exit"
@@ -77,9 +80,12 @@ def process_updates():
             if restart_required(list):
                 if console_user(): 
                     # User is logged in - ask if they want to defer
-                    defer_until = deferral_ok_until()
-                    if defer_until != False:
-                        if not should_defer(defer_until):
+                    max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
+                    if max_defer_date != False:
+                        if not user_wants_to_defer(max_defer_date):
+                            # Users doesn't want to defer, so set
+                            # thing up to install update, and force
+                            # logout.
                             prep_index_for_logout_install()
                             force_update_on_logout()
                             friendly_logout()
@@ -92,9 +98,9 @@ def process_updates():
                         force_update_on_logout()
                         force_logout()
                 elif ( nobody_logged_in() and
-                       is_quiet_hours(QUIET_HOURS_START, QUIET_HOURS_END)):
+                       is_quiet_hours(args['QUIET_HOURS_START'], args['QUIET_HOURS_END'])):
                     print "Nobody is logged in and we are in quiet hours - starting unattended install..."
-                    unattended_install()
+                    unattended_install(min_battery=args['MIN_BATTERY_LEVEL'])
                 else:
                     print ( "Updates require a restart but someone is logged in remotely "
                             "or we are in quiet hours - aborting" )
@@ -151,11 +157,11 @@ def is_quiet_hours(start, end):
         return (start <= now_hour) or (now_hour < end)
         
       
-def unattended_install():
+def unattended_install(min_battery):
     # Do a bunch of safety checks and if all is OK,
     # try to install updates unattended
     # Safety checks here?
-    if (using_ac_power() and min_battery_level(MIN_BATTERY_LEVEL)):  
+    if (using_ac_power() and min_battery_level(min_battery)):  
         lock_out_loginwindow()
         install_recommended_updates()
         # We should make this authenticated...
@@ -199,7 +205,7 @@ def get_update_list():
     print "Checking for updates"
     
     # Get all recommended updates
-    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 120)
+    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 180)
     return list[0].split("\n")
 
 
@@ -244,7 +250,7 @@ def force_update_on_logout():
     sleep(5) 
      
 
-def deferral_ok_until():
+def deferral_ok_until(limit):
     now = datetime.datetime.now()
 
     if os.path.exists(DEFER_FILE):
@@ -259,14 +265,14 @@ def deferral_ok_until():
             return False
     else:
         # Create the file, and write into it
-        limit = datetime.timedelta(days = int(DEFER_LIMIT) )
+        limit = datetime.timedelta(days = int(limit) )
         defer_date = now + limit
         plist = { 'DeferOkUntil': defer_date }
         plistlib.writePlist(plist, DEFER_FILE)
         print "Created deferral file - Ok to defer until {}".format(defer_date)
         return defer_date
 
-def should_defer(defer_until):
+def user_wants_to_defer(defer_until):
     answer = subprocess.call([ JAMFHELPER,
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
@@ -348,4 +354,5 @@ def is_a_laptop():
     return subprocess.check_output(['sysctl', 'hw.model']).find(MacBook) > 0
     
 if __name__ == "__main__":
-    process_updates()
+    args = get_args()
+    process_updates(args)
