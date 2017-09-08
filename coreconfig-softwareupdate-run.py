@@ -342,8 +342,8 @@ def min_battery_level(min):
         try:
             level = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[1].split(';')[0][:-1]
             print "Battery level: {}".format(level)
-            return level >= min
-        except IndexError:
+            return int(level) >= min
+        except (IndexError, ValueError):
             # Couldn't get battery level - play it safe
             print "Failed to get battery level"
             return False
