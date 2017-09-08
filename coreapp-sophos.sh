@@ -88,17 +88,21 @@ EOF
 # Check if Sophos has been previously installed
 if [ -f "/Applications/Sophos Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
-        version=$(defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString | awk -F "." '{print $1}')
-        if [ $version == 9 ]
+        version=`defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString)`
+        compare_version=`echo "$version" | awk -F "." '{print $1$2}'`
+        if [ $compare_version -gt 96 ]
         then
                 # Disable web protection - it leaks information and slows down web browsing
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionFilteringEnabled -bool false
                 defaults write /Library/Preferences/com.sophos.sav WebProtectionScanningEnabled -bool false
-		logger "$0: Found Sophos version 9 installed - will not attempt reinstall"
+		logger "$0: Found Sophos version 9.6.x + installed - will not attempt reinstall"
                 fix_autoupdate_plist
 		exit 0
         else
-	        logger "$0: Sophos < 9 found - will attempt to re-install"
+	        logger "$0: Sophos < 9.6 found - will attempt to re-install"
+	        	# Run Sophos' uninstall process to allow a clean version to be applied.
+	        	SophosInstaller=`find "/Library/Application Support/Sophos" -type d -name "Installer.app"`
+	        	"${SophosInstaller}"/Contents/MacOS/tools/InstallationDeployer --remove
                 # Scrub the autoupdate cache and lockfile in preparation for our new installation
                 rm -f /Library/Caches/com.sophos.sau/CID/cidsync.upd
                 rm -f /Library/Caches/com.sophos.sau/sophosautoupdate.plist
