@@ -52,15 +52,15 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_age
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
 
 def get_args():
-    if len(sys.argv) == 8:
-        args = { 'DEFER_LIMIT': sys.argv[4],
-                 'QUIET_HOURS_START': sys.argv[5],
-                 'QUIET_HOURS_END': sys.argv[6],
-                 'MIN_BATTERY_LEVEL': sys.argv[7]
+    try:
+        args = { 'DEFER_LIMIT': int(sys.argv[4]),
+                 'QUIET_HOURS_START': int(sys.argv[5]),
+                 'QUIET_HOURS_END': int(sys.argv[6]),
+                 'MIN_BATTERY_LEVEL': int(sys.argv[7])
         }
-    else:
-        print "You need to specify DEFER_LIMIT, QUIET_HOURS_START, QUIET_HOURS_AND and MIN_BATTERY_LEVEL"
-        sys.exit(255)
+    except ValueError:
+        print "You need to specify DEFER_LIMIT, QUIET_HOURS_START, QUIET_HOURS_AND and MIN_BATTERY_LEVEL as integers"
+        raise
     return args
     
 def process_updates(args):
@@ -103,7 +103,7 @@ def process_updates(args):
                     unattended_install(min_battery=args['MIN_BATTERY_LEVEL'])
                 else:
                     print ( "Updates require a restart but someone is logged in remotely "
-                            "or we are in quiet hours - aborting" )
+                            "or we are not in quiet hours - aborting" )
                     sys.exit(0)
             else:
                 # Updates are available, but they don't
@@ -339,20 +339,26 @@ def install_recommended_updates():
 
 def min_battery_level(min):
     if is_a_laptop():
-        level = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[1].split(';')[0][:-1]
-        print "Battery level: {}".format(level)
-        return level >= min
+        try:
+            level = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[1].split(';')[0][:-1]
+            print "Battery level: {}".format(level)
+            return level >= min
+        except IndexError:
+            # Couldn't get battery level - play it safe
+            print "Failed to get battery level"
+            return False
     else:
         print "Not a laptop."
 
 def using_ac_power():
-    source = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[0].split(" ")[3]
+    source = subprocess.check_output(['pmset', '-g', 'batt']).split("\t")[0].split(" ")[3][1:]
     print "Power source is: {}".format(source)
     return source == 'AC'
 
 def is_a_laptop():
-    return subprocess.check_output(['sysctl', 'hw.model']).find(MacBook) > 0
+    return subprocess.check_output(['sysctl', 'hw.model']).find('MacBook') > 0
     
 if __name__ == "__main__":
     args = get_args()
     process_updates(args)
+
