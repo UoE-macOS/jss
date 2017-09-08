@@ -88,7 +88,7 @@ EOF
 # Check if Sophos has been previously installed
 if [ -f "/Applications/Sophos Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
-        version=$(defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString)
+        version=`defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString)`
         compare_version=`echo "$version" | awk -F "." '{print $1$2}'`
         if [ $compare_version -gt 96 ]
         then
