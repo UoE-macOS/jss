@@ -1,7 +1,15 @@
 #!/bin/bash
 
+###################################################################
+#
 # Workaround as shown in https://www.jamf.com/jamf-nation/discussions/19050/add-wifi-networks-without-admin-privileges
 # Allows non-admin users to add printers and manage their WiFi configuration.
+#
+# Date: Fri 04 Aug 2017 11:30:33 BST
+# Version: 0.1.1
+# Creator: dsavage
+#
+##################################################################
 
 #For WiFi
 
