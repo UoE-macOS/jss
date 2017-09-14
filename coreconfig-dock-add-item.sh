@@ -8,8 +8,8 @@
 # The script takes 3 arguments; the path to the application
 # to be added and two related to the dock item position.
 #
-# Last Changed: "Thu 13 Jul 2017 15:30:04"
-# Version: 0.1.2
+# Last Changed: "Wed 02 Aug 2017 15:30:04"
+# Version: 0.1.3
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -23,6 +23,10 @@ done
 ACTIVE_USER=`ls -l /dev/console | awk '{print $3}'`
 
 echo "Active user is $ACTIVE_USER"
+
+if [ -f /Users/$ACTIVE_USER/.NoDock ]; then
+exit 0;
+fi
 
 DOCK_PREF="/Users/$ACTIVE_USER/Library/Preferences/com.apple.dock.plist"
 
@@ -39,8 +43,8 @@ DOCK_UTIL="/usr/local/bin/dockutil"
 echo "The Dock Utility is at $DOCK_UTIL"
 
 # Path to the application, normally /Applications/****.app
-#APPLICATION_PATH="$4"
-APPLICATION_PATH="/Applications/Google Chrome.app"
+APPLICATION_PATH="$4"
+
 echo "The Application Path is $APPLICATION_PATH"
 
 POSITION="$5"
