@@ -1,0 +1,28 @@
+#!/bin/bash
+
+###################################################################
+#
+# Enable the ability to send a command to manually encrypt a Mac.
+#
+# Date: Thu 03 Aug 2017 11:30:33 BST
+# Version: 0.1.2
+# Creator: dsavage
+#
+##################################################################
+
+# file for configuring manual encryption
+checkfile="/Library/Application Support/JAMF/Encrypt_Me.txt"
+
+echo "Encrypt" > "${checkfile}"
+
+# perform a recon to update the status
+/usr/local/bin/jamf recon
+
+sleep 2
+
+# triggere the encryption
+/usr/local/bin/jamf policy -event FileVault-Init
+
+#
+
+exit 0;
