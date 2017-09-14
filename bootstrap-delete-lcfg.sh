@@ -6,10 +6,10 @@
 # This is an import of Kenny's script from
 # https://sourced.ecdf.ed.ac.uk/projects/is/dst/browser/macosx/trunk/UoE-Welcome/scripts/delete-lcfg
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: "Fri 18 Aug 16:26:38 2016 +0100"
+# Version: 0.1.4
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: dsavage
 #
 ##################################################################
 
@@ -65,11 +65,23 @@ _delete_pkg () {
     _forget_pkg ${1}
 }
 
+
+_delete_mcx() {
+
+dscl . -destroy /ComputerGroups/org.lcfg.mcx.00-dockithelp
+rm -dfR /Library/Managed\ Preferences
+
+}
+
+
 _delete_lcfg() {
 
     local p
     
     [ -f "/var/lcfg/conf/profile/nodename" ] && cat /var/lcfg/conf/profile/nodename > /var/db/.MigratingFromLCFG 2>/dev/null
+    # Try stopping lcfg first
+    PATH=$PATH:/usr/local/bin:/usr/local/sbin
+    om client stop
     
     # Remove some directories we know are only from LCFG
     rm -rf  /var/lcfg \
@@ -83,6 +95,22 @@ _delete_lcfg() {
         /usr/{,local}/share/doc/lcfg-* \
         /usr/{,local}/share/lcfgbuild \
         /etc/logrotate.d/lcfg-* \
+        /Library/LaunchAgents/ed.is.enable_web_java_plugin.plist \
+        /Library/LaunchAgents/ed.is.personalizeoffice.plist \
+        /Library/LaunchDaemons/*lcfg \
+        /Library/LaunchDaemons/ed.is.AddPrinter.plist \
+        /Library/LaunchDaemons/ed.is.Bomgar-SocketFilterFW.plist \
+        /Library/LaunchDaemons/ed.is.FlashWatchman.plist \
+        /Library/LaunchDaemons/ed.is.lcfg_client_check.plist \
+        /Library/LaunchDaemons/ed.is.MacOSWatchman.plist \
+        /Library/LaunchDaemons/ed.is.remove-mso2011.plist \
+        /Library/LaunchDaemons/ed.is.setcomputername.plist \
+        /Library/LaunchDaemons/ed.is.setlocalhostname.plist \
+        /Library/LaunchDaemons/ed.is.softwareupdate.plist \
+        /Library/LaunchDaemons/ed.is.XeroxWatchman.plist \
+        /Library/LaunchDaemons/ed.msd.HomeSyncDaemon.plist \
+        /Library/LaunchDaemons/swupdate.plist \
+        /Library/LaunchDaemons/uk.ac.ed.mdp.rebootd.plist \
         /Library/MacMDP/Receipts/* \
         /Library/StartupItems/MacLCFG \
         /Library/StartupItems/InstallLCFGProfile \
@@ -99,3 +127,4 @@ _delete_lcfg() {
 
 # Call the main function ...
 _delete_lcfg
+_delete_mcx
