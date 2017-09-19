@@ -44,13 +44,21 @@ def main(args):
     request['policy'] = APP_NAME
     request['message'] = msg  
 
+    progress_msg = None
+    req_filename = None
+
     try:
-        write_request(request)
+        req_filename = write_request(request)
+        progress_msg = display_message("Submitting request.\n\nPlease wait...", 
+                       button=False)
         run_recon()
+        progress_msg.kill()
         display_confirmation()
     except Exception as ex:
-        raise
-        sys.exit(1)
+        progress_msg.kill()
+        display_message("Something went wrong and your request has not been submitted.\n\nPlease try again later", button="OK")
+        if req_filename and os.path.exists(req_filename):
+            os.remove(req_filename)
 
 def display_confirmation():
     script = """tell application "Finder"
@@ -95,7 +103,8 @@ def write_request(request, dir=REQUESTS_DIR):
     except Exception as ex:
         print "Failed to write request file: {:s}".format(ex)
         raise
-        
+       
+    return out_filename 
     
 def get_now():
     return datetime.datetime.now().isoformat()
@@ -123,7 +132,7 @@ def get_msg(user, app):
 		
 Your request will be forwarded to the approver for your area.
 
-Please leave a message (required):" with title "Mac@ED Application Approval" default answer "" buttons {{"Request", "Cancel"}} with icon file "System:Library:CoreServices:Installer.app:Contents:Resources:package.icns")
+Please leave a message (required):" with title "Mac@ED Application Requests" default answer "" buttons {{"Request", "Cancel"}} with icon file "System:Library:CoreServices:Installer.app:Contents:Resources:package.icns")
 	end repeat
 	return message
 end tell""".format(app)
@@ -136,6 +145,27 @@ end tell""".format(app)
                         stderr=FNULL)  
         out = proc.communicate(script)[0]
         return out.strip() or None
+
+def display_message(msg, button=False):
+    """ Use jamfHelper to display a message to the user
+        jamfHelper will remain open and you'll be returned a
+        Popen object that references the process.
+    """
+    JAMFHELPER = '/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper'
+    
+    command = [ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'Mac@ED Application Requests',
+                              '-icon', '/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns',
+                              '-iconSize', '72',
+                              '-timeout', '99999',
+                              '-heading', 'Processing your request',
+                              '-description', msg ]
+    if button:
+        command += [ '-button1', button, '-defaultButton', '1' ]
+
+    helper = Popen(command)
+    return helper
 
 if __name__ == "__main__":
   main(sys.argv)
