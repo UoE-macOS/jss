@@ -11,10 +11,10 @@
 # then the name will be based on the school code of the user
 # who is currently logged in, combined with the computer serial number.
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: "Fri 23 Jun 16:26:38 2016 +0100"
+# Version: 0.1.5
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: dsavage
 #
 #######################################################################
 
@@ -58,6 +58,25 @@ main() {
   /usr/sbin/scutil --set ComputerName "${name}"
   /usr/sbin/scutil --set HostName "${name}"
 
+  # Check name is right
+  livename=`/usr/sbin/scutil --get ComputerName`
+  until [ $livename == $name ]; do
+    /usr/sbin/scutil --set LocalHostName "${name}"
+    /usr/sbin/scutil --set ComputerName "${name}"
+    /usr/sbin/scutil --set HostName "${name}"
+    # Set the NetBIOS name
+    defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "${name}"
+    sleep 2
+    livename=`/usr/sbin/scutil --get ComputerName`
+  done
+
+  dscacheutil -flushcache
+
+  #defaults write /System/Library/LaunchDaemons/com.apple.discoveryd "ProgramArguments" -array-add '<string>--no-namechange</string>'
+
+  killall sysinfo
+  open -a /Applications/sysinfo.app > /dev/null 2>&1
+
   echo "$0: Set machine name to ${name}"
   echo "$0: Updating JSS"
 
@@ -79,7 +98,8 @@ get_mobility() {
 }
 
 get_serial() {
-  serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}')
+  # Full serial is a bit long, use the last 8 chars instead.
+  serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
   echo ${serial_no}
   logger "$0: Serial No: ${serial_no}"
 }
@@ -103,5 +123,16 @@ get_macaddr() {
   echo ${macaddr}
 }
 
+get_edlan_dnsname() {
+  mac=$(get_macaddr)
+  netbios=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=NetBIOS" 2>/dev/null) 
+  # Remove anything potentially dodgy 
+  #dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
+  echo ${netbios}
+  logger "$0: NetBIOS Name: ${netbios}"
+}
+
 # Do something!
 main "${4}"
+
+exit 0;

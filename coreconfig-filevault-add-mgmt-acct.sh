@@ -10,10 +10,10 @@
 # us credentials that will allow us to add the 
 # management user to filevault.
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: "Mon Sep 04 16:26:38 2016 +0100"
+# Version: 0.1.4
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: dsavage
 #
 ##################################################################
 
@@ -30,8 +30,8 @@ get_password() {
   tell application "Finder"
       activate
       with timeout of 36000 seconds
-        set the_result to (display dialog "The support framework needs to be able to control FileVault on this computer.\n\nEnter the password of an account which can unlock FileVault on this computer"¬
-          with title "University of Edinburgh Mac Supported Desktop" default answer "" with hidden answer)
+        set the_result to (display dialog "The Mac Supported Desktop requires access to the FileVault encryption on this computer to back up its encryption key.\n\nEnter the password of an account which can unlock FileVault on this computer (this may be your own logon password).\n\nOur use of this password is secure, and used only to safely gather the Filevault key. The password you type is not stored in any way. If you are unsure how to proceed, or want more information, contact the IS Helpline on 0131 6515151 advising that you are receiving this message."¬
+          buttons {"Accept"} default button 1 with title "University of Edinburgh Mac Supported Desktop" default answer "" with hidden answer)
         set the_answer to text returned of the_result
       end timeout
   end tell

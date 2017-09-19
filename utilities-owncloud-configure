@@ -1,0 +1,68 @@
+#!/bin/bash
+
+###################################################################
+#
+# Pre-configuration of ownCloud client for document synching.
+#
+# Date: Mon 03 Jul 2017 11:30:33 BST
+# Version: 0.1.1
+# Creator: dsavage
+#
+##################################################################
+
+# Get logged in user
+user=`who | grep console | awk '{print $1}'`
+
+# If ownCloud directory doesn't exist then create it
+if [ ! -d "/Users/$user/DocSyncUoE" ]; then
+	mkdir "/Users/$user/DocSyncUoE/"
+	# Apply permissions
+	chown -R "$user" "/Users/$user/DocSyncUoE/"
+# else display log message
+else
+	echo "/Users/$user/DocSyncUoE already exists, skipping..."
+fi
+
+# If ownCloud App support folder does not exist then create it
+if [ ! -d "/Users/$user/Library/Application Support/ownCloud" ]; then
+	mkdir "/Users/$user/Library/Application Support/ownCloud"
+	# Apply permissions
+	chown -R "$user" "/Users/$user/Library/Application Support/ownCloud"
+# else display log message
+else
+	echo "/Users/$user/Library/Application Support/ownCloud already exists, skipping..."
+fi
+
+# Store location of owncloud config file
+owncloudCFG="/Users/$user/Library/Application Support/ownCloud/owncloud.cfg"
+
+# If config exists then no need to create it
+if test -e "$owncloudCFG"
+then
+  echo "File ~/Library/Application Support/ownCloud/owncloud.cfg exists, skipping..."
+# Else create the config file, setting specific config options
+else
+
+cat <<EOF >> "$owncloudCFG"
+[General]
+confirmExternalStorage=false
+newBigFolderSizeLimit=500
+optionalDesktopNotifications=true
+useNewBigFolderSizeLimit=false
+
+[Accounts]
+0\Folders\1\ignoreHiddenFiles=true
+0\Folders\1\localPath=/Users/$user/DocSyncUoE/
+0\Folders\1\paused=false
+0\Folders\1\targetPath=/
+0\authType=http
+0\http_user=$user
+0\serverVersion=8.0.0.7
+0\url=https://datasync.ed.ac.uk
+0\user=$user
+version=2
+EOF
+
+fi
+
+exit 0;

@@ -6,7 +6,7 @@
 # with the Computers name. NoMAD caches user AD group membership, so 
 # admin rights will remain, even when the machine is offsite.
 #
-# Date: Tue 08 Aug 2017 11:04:46 BST
+# Date: Mon 21 Aug 2017 11:30:33 BST
 # Version: 0.1.7
 # Creator: dsavage
 #
@@ -24,9 +24,9 @@ Select_DC=`eval echo \"$Random_DC\" | awk '{print $'${Random_Number}'}' `
 echo "$Select_DC"
 }
 
-
-
+# may switch - `python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
 User_Name=`ls -l /dev/console | awk '{print $3}'`
+
 
 echo $User_Name
 
@@ -38,14 +38,14 @@ echo $Computer_Name
 Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep '/Users/' | awk '{print $2}'`
 
 # Path to the preference
-NoMAD_Path="/Users/$User_Name/Library/Preferences/com.trusourcelabs.NoMAD.plist"
+NoMAD_Path="${Home_Path}/Library/Preferences/com.trusourcelabs.NoMAD.plist"
 
 if ! [ -e "$NoMAD_Path" ];
 then
-	exit 0; # NoMAD hasn't launched
+	exit 254; # NoMAD hasn't launched
 fi
 
-user_uid=`id -u "$User_Name"`
+user_uid=`id -u $User_Name`
 
 # Change Auth_User to use python to call the klist command as the shell just wasn't working.
 Auth_User=$(python - <<EOF
@@ -86,7 +86,7 @@ done
 
 echo "$Domain_Controller responded to ping, using for AD rights..."
 
-Admin_Users=( `launchctl asuser $User_Name | ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://${Domain_Controller}.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
+Admin_Users=( `launchctl asuser $user_uid | ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://${Domain_Controller}.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
 
 echo ${Admin_User[@]}
 
