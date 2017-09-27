@@ -9,13 +9,18 @@
 #
 #
 # Date: "Tue 26 Sep 2017 13:59:43 BST"
-# Version: 0.1
+# Version: 0.1.1
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
 ##################################################################
 
-available_version="$(curl https://www.mozilla.org/en-US/firefox/organizations/all/ | grep "data-esr-versions=" | awk -F '"' '{print $10}')"
+# We may want to version lock Firefox ESR or can let it upgrade from vendor derived info.
+if [ -z "$4"] || [ "$4" == '' ]; then
+  available_version="$(curl https://www.mozilla.org/en-US/firefox/organizations/all/ | grep "data-esr-versions=" | awk -F '"' '{print $10}')"
+else
+  available_version="$4"
+fi
 
 DOWNLOAD_URL="http://download-origin.cdn.mozilla.net/pub/firefox/releases/${available_version}esr/mac/en-GB/Firefox ${available_version}esr.dmg"
 
