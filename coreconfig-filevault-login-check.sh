@@ -32,9 +32,12 @@ user_is_valid() {
   [ ! -z ${uid_num} ]
 }
 
+# in-built jamf variable $3, doesn't seem to be returning a valid username, even if a uun account is logged on.
+user_name=`ls -l /dev/console | awk '{print $3}'`
+
 if ! filevault_is_enabled
 then
-  if user_is_valid ${3}
+  if user_is_valid ${user_name}
   then
     # This causes the 'UoE - FileVault - Initialise' policy to
     # set things up such that FileVault will be enabled for the
@@ -42,7 +45,7 @@ then
     /usr/local/bin/jamf policy -event 'filevault-init'
     
     # Now force the user to log out to complete the enablement process
-    result="$(sudo -u ${3} osascript <<EOT
+    result="$(sudo -u ${user_name} osascript <<EOT
       repeat while application "Finder" is not running
         delay 1
       end repeat
