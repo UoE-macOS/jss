@@ -554,12 +554,12 @@ else
 	fi
 fi
 
+health_check
+
 # Cache offline policies for login items
 /usr/local/bin/jamf policy -event Login
 /usr/local/bin/jamf policy -event Dock
 /usr/local/bin/jamf policy -event LoginItem
-
-health_check
 
 # Check if the Mac is already encryted and prompt so the key can be escrowed.
 fv_status=`fdesetup status | awk '{print $3}'`
