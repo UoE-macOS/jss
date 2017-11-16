@@ -10,16 +10,16 @@
 # is logged on) and, if a password is provided which matches our dircetory service
 # and there is no existing account for that user on this machine, will
 # then create a local account for that user. If the machine is a
-# laptop it is named with a compbination of that user's school code
+# laptop it is named with a combination of that user's school code
 # and the serial number. If it is a desktop the name is looked up
 # in our network database.
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: "Tue 29 Aug 2017 14:32:51 BST"
-# Version: 0.1.5
+# Date: "Thu 16 Nov 2017 14:07:24 GMT"
+# Version: 0.1.6
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: dsavage
+# Released by JSS User: ganders1
 #
 ##################################################################
 
@@ -283,7 +283,8 @@ get_macaddr() {
 
 get_edlan_dnsname() {
   mac=$(get_macaddr)
-  dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) 
+  #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
+  dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
   # Remove anything potentially dodgy 
   dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
   echo ${dnsname}
@@ -557,11 +558,14 @@ fi
 health_check
 
 # Cache offline policies for login items
-/usr/local/bin/jamf policy -event Login
+#/usr/local/bin/jamf policy -event Login
 /usr/local/bin/jamf policy -event Dock
 /usr/local/bin/jamf policy -event LoginItem
 
-# Check if the Mac is already encryted and prompt so the key can be escrowed.
+# Check whether School/dept's local admin account exists and, if not, created it
+/usr/local/bin/jamf policy -event Check-Local-Admin
+
+# Check if the Mac is already encrypted and prompt so the key can be escrowed.
 fv_status=`fdesetup status | awk '{print $3}'`
 
 if [ "${fv_status}" == "On." ]; then
