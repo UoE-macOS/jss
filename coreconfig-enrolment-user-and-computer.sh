@@ -10,7 +10,7 @@
 # is logged on) and, if a password is provided which matches our dircetory service
 # and there is no existing account for that user on this machine, will
 # then create a local account for that user. If the machine is a
-# laptop it is named with a combination of that user's school code
+# laptop it is named with a compbination of that user's school code
 # and the serial number. If it is a desktop the name is looked up
 # in our network database.
 #
@@ -193,6 +193,24 @@ if [ $dialogue == "YES" ]; then
 	killall jamfHelper
 else
 	/usr/local/bin/jamf policy -event Core-Apps
+fi
+}
+
+trigger_software_update() {
+if [ $dialogue == "YES" ]; then
+	# Display this message but send the jamfhelper process into the background
+	# so that execution continues
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+ -windowType utility\
+ -title 'UoE Mac Supported Desktop'\
+ -heading 'Checking Software Update'\
+ -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+ -timeout 99999\
+ -description "$(echo -e We are ensuring that your Operating System is up-to-date.\\n\\nThis will take several minutes.\\n\\nPlease do not restart your computer.)" &
+	/usr/local/bin/jamf policy -event runsoftwareupdate
+	killall jamfHelper
+else
+	/usr/local/bin/jamf policy -event runsoftwareupdate
 fi
 }
 
@@ -571,6 +589,9 @@ fv_status=`fdesetup status | awk '{print $3}'`
 if [ "${fv_status}" == "On." ]; then
 	/usr/local/bin/jamf policy -event FileVault-Ctrl
 fi
+
+# Last thing before a restart check for OS updates
+trigger_software_update
 
 # Time to do a restart
 do_restart
