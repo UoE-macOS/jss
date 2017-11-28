@@ -16,10 +16,10 @@
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: "Thu 16 Nov 2017 14:07:24 GMT"
-# Version: 0.1.6
+# Date: "Tue 28 Nov 2017 09:57:53 GM"
+# Version: 0.1.7
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: ganders1
+# Released by JSS User: dsavage
 #
 ##################################################################
 
@@ -293,7 +293,8 @@ get_school() {
 }
 
 get_macaddr() {
-  macaddr=$(ifconfig en0 ether | awk '/ether/ {print $NF}')
+  active_adapter=`route get ${JSS_URL} | grep interface | awk '{print $2}'`
+  macaddr=$(ifconfig $active_adapter ether | awk '/ether/ {print $NF}')
   logger "$0: MAC Address: ${macaddr}"
   echo ${macaddr}
 }
