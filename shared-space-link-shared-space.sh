@@ -5,8 +5,8 @@
 # Enable users to add shared server spaces for multiple
 # Schools via Self Service.
 #
-# Date: Thu 07 Sep 2017 11:30:33 BST
-# Version: 0.1.2
+# Date: Thu 21 Dec 2017 15:16:22 GMT
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
@@ -19,21 +19,14 @@ unit=$4
 subject=$5
 #subject="div"
 
-# sfltool is an Apple utility that can work with the sidebar and server list
-# Usage: sfltool restore|add-item|save-lists|test|archive|enable-modern|dump-server-state|clear|disable-modern|dump-storage|list-info [options] 
-sfl="/usr/bin/sfltool"
-
 user_name=`ls -l /dev/console | awk '{print $3}'`
 
 smb_mount="smb://${user_name}@$unit.datastore.ed.ac.uk/$unit/$subject"
 
 smb_path="smb://$unit.datastore.ed.ac.uk/$unit/$subject"
 
-share="file:///Volumes/${subject}"
+share="/Volumes/${subject}"
 
-favorite_servers="/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.FavoriteServers.sfl"
-
-favorite_items="/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.FavoriteItems.sfl"
 
 mount_volume() {
 script_args="mount volume \"${smb_mount}\""
@@ -47,28 +40,29 @@ do
 done
 }
 
-# Adds the entry to the Go > Connect to Server menu...
-add_FavoriteServers() {
-server_exists=`$sfl dump-storage /Users/"${user_name}""${favorite_servers}" | grep "${smb_path}" | awk '{print $1}'`
-if ! [ "${smb_path}" == "${server_exists}" ]; then
-  $sfl add-item -n "${smb_path}" com.apple.LSSharedFileList.FavoriteServers "${smb_mount}"
-fi
-}
 
 # Adds the entry to the sidebar
 add_FavoriteItems() {
-share_exists=`$sfl dump-storage /Users/"${user_name}""${favorite_items}" | grep "URL:${share}" | awk '{print $4}'`
-if ! [ "URL:${share}" == "${share_exists}" ]; then
   if [ -d /Volumes/${subject} ]; then
-    $sfl add-item com.apple.LSSharedFileList.FavoriteItems "${share}"
-    else
+    python - <<EOF
+import sys
+sys.path.append('/usr/local/python')
+from FinderSidebarEditor import FinderSidebar                  # Import the module
+sidebar = FinderSidebar()                                      # Create a Finder sidebar instance to act on.
+sidebar.add("$share")                                        # Add 'Utilities' favorite to sidebar
+EOF
+  else
     mount_volume
-    $sfl add-item com.apple.LSSharedFileList.FavoriteItems "${share}"
-  fi
+	python - <<EOF
+import sys
+sys.path.append('/usr/local/python')
+from FinderSidebarEditor import FinderSidebar                  # Import the module
+sidebar = FinderSidebar()                                      # Create a Finder sidebar instance to act on.
+sidebar.add("$share")                                        # Add 'Utilities' favorite to sidebar
+EOF
 fi
 }
 
-add_FavoriteServers
 add_FavoriteItems
 
 exit 0;
