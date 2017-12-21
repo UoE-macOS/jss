@@ -5,15 +5,11 @@
 # Script for desktop Macs to add a shortcut to the user's network homespace into their 
 # Favourites list in the Finder once the user is signed into NoMAD, which should happen by default on desktop Macs.
 #
-# Date: Thu 07 Sep 2017 11:30:33 BST
-# Version: 0.1.2
+# Date: Thu 21 Dec 2017 15:16:22 GMT
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
-
-# sfltool is an Apple utility that can work with the sidebar and server list
-# Usage: sfltool restore|add-item|save-lists|test|archive|enable-modern|dump-server-state|clear|disable-modern|dump-storage|list-info [options] 
-sfl="/usr/bin/sfltool"
 
 #Get username of logged in user
 User_Name=`ls -l /dev/console | awk '{print $3}'`
@@ -45,12 +41,9 @@ echo $homeSharePath >> $LogFile
 
 
 # Define the completed path from which to create the sidebar shortcut
-share="file:///Volumes/${homeSharePoint}/${homeSharePath}/"
+share="/Volumes/${homeSharePoint}/${homeSharePath}/"
 #trimmedshare=$(echo $share | sed 's:/*$::')
 #echo "The trimmed share path is: $trimmedshare"
- 
-# Define the Finder sidebar favourites path
-favorite_items="/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.FavoriteItems.sfl"
 
 mount_volume() {
 script_args="mount volume \"smb://${homeServer}/${homeSharePoint}\""
@@ -66,17 +59,23 @@ done
 
 # Add the entry to the sidebar
 add_FavoriteItems() {
-share_exists=`$sfl dump-storage /Users/"${User_Name}""${favorite_items}" | grep "URL:${share}" | awk '{print $4}'`
-if ! [ "${share_exists}" == "URL:${share}" ]; then
-  if [ -d /Volumes/${homeSharePoint} ]; then
-    $sfl add-item com.apple.LSSharedFileList.FavoriteItems "${share}"
+if [ -d /Volumes/${homeSharePoint} ]; then
+    python - <<EOF
+import sys
+sys.path.append('/usr/local/python')
+from FinderSidebarEditor import FinderSidebar                  # Import the module
+sidebar = FinderSidebar()                                      # Create a Finder sidebar instance to act on.
+sidebar.add("$share")                                        # Add 'Utilities' favorite to sidebar
+EOF
   else
     mount_volume
-    share_exists=`$sfl dump-storage /Users/"${User_Name}""${favorite_items}" | grep "URL:${share}" | awk '{print $4}'`
-    if ! [ "${share_exists}" == "URL:${share}" ]; then
-        $sfl add-item com.apple.LSSharedFileList.FavoriteItems "${share}"
-    fi
-  fi
+	python - <<EOF
+import sys
+sys.path.append('/usr/local/python')
+from FinderSidebarEditor import FinderSidebar                  # Import the module
+sidebar = FinderSidebar()                                      # Create a Finder sidebar instance to act on.
+sidebar.add("$share")                                        # Add 'Utilities' favorite to sidebar
+EOF
 fi
 }
 
