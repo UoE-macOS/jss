@@ -96,7 +96,7 @@ def process_updates(args):
                         # so require a logout
                         prep_index_for_logout_install()
                         force_update_on_logout()
-                        force_logout()
+                        force_logout(printable_updates(list))
                 elif ( nobody_logged_in() and
                        is_quiet_hours(args['QUIET_HOURS_START'], args['QUIET_HOURS_END'])):
                     print "Nobody is logged in and we are in quiet hours - starting unattended install..."
@@ -292,14 +292,14 @@ def user_wants_to_defer(defer_until, updates):
         print "User permitted immediate update"
         return False
         
-def force_logout():
+def force_logout(updates):
     answer = subprocess.call([ JAMFHELPER,
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Mandatory Restart Required',
                               '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
                               '-timeout', '99999',
-                              '-description', "A software update which requires a restart has been deferred for the maximum allowable time and a restart is now mandatory.\n\nPlease save your work and restart now to install the update.",
+                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
                               '-button1', 'Restart now' ])
     friendly_logout()
 
