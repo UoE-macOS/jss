@@ -82,7 +82,7 @@ def process_updates(args):
                     # User is logged in - ask if they want to defer
                     max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
                     if max_defer_date != False:
-                        if not user_wants_to_defer(max_defer_date):
+                        if not user_wants_to_defer(max_defer_date, printable_updates(list)):
                             # Users doesn't want to defer, so set
                             # thing up to install update, and force
                             # logout.
@@ -96,7 +96,7 @@ def process_updates(args):
                         # so require a logout
                         prep_index_for_logout_install()
                         force_update_on_logout()
-                        force_logout()
+                        force_logout(printable_updates(list))
                 elif ( nobody_logged_in() and
                        is_quiet_hours(args['QUIET_HOURS_START'], args['QUIET_HOURS_END'])):
                     print "Nobody is logged in and we are in quiet hours - starting unattended install..."
@@ -208,6 +208,9 @@ def get_update_list():
     list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 180)
     return list[0].split("\n")
 
+def printable_updates(list):
+    """ Return a printable list of available updates """
+    return "\n".join([ a.split(',')[0] for a in list if '[restart]' in a ])
 
 def download_updates():
     print "Downloading updates"
@@ -272,14 +275,14 @@ def deferral_ok_until(limit):
         print "Created deferral file - Ok to defer until {}".format(defer_date)
         return defer_date
 
-def user_wants_to_defer(defer_until):
+def user_wants_to_defer(defer_until, updates):
     answer = subprocess.call([ JAMFHELPER,
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Software Update Available',
                               '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
                               '-timeout', '99999',
-                              '-description', "One or more software updates require a restart.\nIt is essential that software updates are applied in a timely fashion.\n\nYou can either restart now or defer.\n\nAfter %s you will be required to restart." % defer_until.strftime( "%a, %d %b %H:%M:%S"),
+                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s." % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
                               '-button1', 'Restart now',
                                '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if answer == 2: # 0 = now, 2 = defer
@@ -289,14 +292,14 @@ def user_wants_to_defer(defer_until):
         print "User permitted immediate update"
         return False
         
-def force_logout():
+def force_logout(updates):
     answer = subprocess.call([ JAMFHELPER,
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Mandatory Restart Required',
                               '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
                               '-timeout', '99999',
-                              '-description', "A software update which requires a restart has been deferred for the maximum allowable time and a restart is now mandatory.\n\nPlease save your work and restart now to install the update.",
+                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
                               '-button1', 'Restart now' ])
     friendly_logout()
 
