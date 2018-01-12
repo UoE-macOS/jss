@@ -74,15 +74,19 @@ def process_updates(args):
     # softwareupdate command - it's slow.
     try: 
         list = get_update_list()
+        updates = parse_update_list(list) 
      
         if updates_available(list):
             download_updates()
-            if restart_required(list):
+            # install any that don't require a restart
+            if len(updates['norestart']) > 0:
+                install_update_list(updates['norestart'])
+            if len(updates['restart']) > 0:
                 if console_user(): 
                     # User is logged in - ask if they want to defer
                     max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
                     if max_defer_date != False:
-                        if not user_wants_to_defer(max_defer_date, printable_updates(list)):
+                        if not user_wants_to_defer(max_defer_date, "\n".join(updates['restart'])):
                             # Users doesn't want to defer, so set
                             # thing up to install update, and force
                             # logout.
@@ -96,7 +100,7 @@ def process_updates(args):
                         # so require a logout
                         prep_index_for_logout_install()
                         force_update_on_logout()
-                        force_logout(printable_updates(list))
+                        force_logout("\n".join(updates['restart']))
                 elif ( nobody_logged_in() and
                        is_quiet_hours(args['QUIET_HOURS_START'], args['QUIET_HOURS_END'])):
                     print "Nobody is logged in and we are in quiet hours - starting unattended install..."
@@ -106,11 +110,7 @@ def process_updates(args):
                             "or we are not in quiet hours - aborting" )
                     sys.exit(0)
             else:
-                # Updates are available, but they don't
-                # require a restart - just install them
-                print "Installing updates which don't require a restart"
-                install_recommended_updates()
-                # and remove the deferral tracking file
+                # Remove the deferral tracking file
                 remove_deferral_tracking_file()
                 sys.exit(0)
         else:
@@ -208,9 +208,27 @@ def get_update_list():
     list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 180)
     return list[0].split("\n")
 
-def printable_updates(list):
-    """ Return a printable list of available updates """
-    return "\n".join([ a.split(',')[0] for a in list if '[restart]' in a ])
+def parse_update_list(list):
+    # Declare somewhere to keep our list of updates
+    all_updates = { 'restart':[], 'norestart':[] }
+
+    # Human readable names are stored on the line below
+    # the 'real' name, and the restart information
+    # is stored with the human-readable name. So, we parse
+    # the human-readable text and then add the text from the
+    # line above it (which contains the 'real' name of the update)
+    # to our updates dict.
+    for i in range(len(list)):
+      if '[restart]' in list[i]:
+        all_updates['restart'].append(list[i-1][5:]) # Remove the '\t  (*|-) ' from the start of the line
+      elif '\t' in list[i] and not '[restart]' in list[i]:
+        all_updates['norestart'].append(list[i-1][5:])
+    print all_updates
+    return all_updates
+
+def install_update_list(list):
+    print "Installing updates: %s" % " ".join(list)
+    result = cmd_with_timeout([ SWUPDATE, '-i', " ".join(list) ], 3600)
 
 def download_updates():
     print "Downloading updates"
