@@ -227,8 +227,8 @@ def parse_update_list(list):
     return all_updates
 
 def install_update_list(list):
-    print "Installing updates: %s" % " ".join(list)
-    result = cmd_with_timeout([ SWUPDATE, '-i', " ".join(list) ], 3600)
+    print 'Installing updates: "{}"'.format('" "'.join(list))
+    result = cmd_with_timeout([ SWUPDATE, '-i'] + list, 3600)
 
 def download_updates():
     print "Downloading updates"
