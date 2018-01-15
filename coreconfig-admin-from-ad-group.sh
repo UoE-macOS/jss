@@ -6,8 +6,8 @@
 # with the Computers name. NoMAD caches user AD group membership, so 
 # admin rights will remain, even when the machine is offsite.
 #
-# Date: Mon 21 Aug 2017 11:30:33 BST
-# Version: 0.1.7
+# Date: Mon Jan 15 16:17:19 GMT 2018
+# Version: 0.1.9
 # Creator: dsavage
 #
 ##################################################################
@@ -17,8 +17,7 @@ Random_Domain_Controller ()
 {
 Random_DC="aviemore brora ceres crieff cromarty kelso leven oban vesta"
 Num_Random=`echo $Random_DC | wc -w`
-seed=`head -1 /dev/random | wc -c | tr -d ' '`
-Random_Number=`echo \(${seed}\%${Num_Random}\)+1 | bc`
+Random_Number=`jot -r 1 1 $Num_Random`
 Select_DC=`eval echo \"$Random_DC\" | awk '{print $'${Random_Number}'}' `
 
 echo "$Select_DC"
@@ -26,7 +25,6 @@ echo "$Select_DC"
 
 # may switch - `python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
 User_Name=`ls -l /dev/console | awk '{print $3}'`
-
 
 echo $User_Name
 
@@ -86,16 +84,16 @@ done
 
 echo "$Domain_Controller responded to ping, using for AD rights..."
 
-Admin_Users=( `launchctl asuser $user_uid | ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://${Domain_Controller}.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
+Admin_Users=( `launchctl asuser $user_uid ldapsearch -b"ou=Authorisation,ou=UoESD,dc=ed,dc=ac,dc=uk" -H "ldap://${Domain_Controller}.ed.ac.uk" "(cn=${Computer_Name})" member | grep "member:" | awk -F "CN=" '{print $2}' | awk -F "," '{print $1}' `)
 
-echo ${Admin_User[@]}
+echo ${Admin_Users[@]}
 
 # Apply admin rights
-for AD_User in $Admin_Users
+for AD_User in ${Admin_Users[@]}
 do
 	# Is there a local account with the uun name
 	UUN_Present=`dscl . -list /Users | grep $AD_User`
-	# check the local username maches the UUN or that the UUN is present in the local node.
+	# check the local username matches the UUN or that the UUN is present in the local node.
 	if  [ "${User_Name}@ED.AC.UK" == "$Auth_User" ] || [ "$AD_User" == "$UUN_Present" ];
 	then
 		if ! [ "$Admin_Exists" == "$AD_User" ];
