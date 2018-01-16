@@ -38,6 +38,9 @@ import thread
 from time import sleep
 from threading import Timer
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
+from xml.etree import ElementTree
+from Foundation import CFPreferencesCopyAppValue
+
 
 SWUPDATE = '/usr/sbin/softwareupdate'
 PLISTBUDDY = '/usr/libexec/PlistBuddy'
@@ -47,9 +50,14 @@ TRIGGERFILE = '/var/db/.AppleLaunchSoftwareUpdate'
 OPTIONSFILE = '/var/db/.SoftwareUpdateOptions'
 DEFER_FILE = '/var/db/UoESoftwareUpdateDeferral'
 QUICKADD_LOCK = '/var/run/UoEQuickAddRunning'
-NO_NETWORK_MSG = "Can't connect to the Apple Software Update server, because you are not connected to the Internet."
-SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd', 'softwareupdate_notify_agent', 'softwareupdate_download_service']
+UPDATES_CACHE = '/Library/Updates'
+NO_NETWORK_MSG = ("Can't connect to the Apple Software Update server, "
+                  "because you are not connected to the Internet.")
+SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
+                      'softwareupdate_notify_agent',
+                      'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
+SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
 
 def get_args():
     try:
@@ -69,54 +77,68 @@ def process_updates(args):
         print "QuickAdd package appears to be running - will exit"
         sys.exit(0)
     
-    # Check for updates - we stash the result so that
-    # we minimise the number of times we have to run the
-    # softwareupdate command - it's slow.
-    try: 
-        list = get_update_list()
-        updates = parse_update_list(list) 
-     
-        if updates_available(list):
-            download_updates()
-            # install any that don't require a restart
-            if len(updates['norestart']) > 0:
-                install_update_list(updates['norestart'])
-            if len(updates['restart']) > 0:
-                if console_user(): 
-                    # User is logged in - ask if they want to defer
-                    max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
-                    if max_defer_date != False:
-                        if not user_wants_to_defer(max_defer_date, "\n".join(updates['restart'])):
-                            # Users doesn't want to defer, so set
-                            # thing up to install update, and force
-                            # logout.
-                            prep_index_for_logout_install()
-                            force_update_on_logout()
-                            friendly_logout()
-                        else:
-                            sys.exit(0)
-                    else:
-                        # User is not allowed to defer any longer
-                        # so require a logout
-                        prep_index_for_logout_install()
-                        force_update_on_logout()
-                        force_logout("\n".join(updates['restart']))
-                elif ( nobody_logged_in() and
-                       is_quiet_hours(args['QUIET_HOURS_START'], args['QUIET_HOURS_END'])):
-                    print "Nobody is logged in and we are in quiet hours - starting unattended install..."
-                    unattended_install(min_battery=args['MIN_BATTERY_LEVEL'])
-                else:
-                    print ( "Updates require a restart but someone is logged in remotely "
-                            "or we are not in quiet hours - aborting" )
-                    sys.exit(0)
-            else:
-                # Remove the deferral tracking file
-                remove_deferral_tracking_file()
-                sys.exit(0)
-        else:
+    need_restart = []
+    try:
+        #sync_update_list()
+        
+        if len(recommended_updates()) == 0:
             print "No Updates"
             remove_deferral_tracking_file()
-            sys.exit(0)
+            return True
+
+        for update in recommended_updates():
+            print("Processing {}".format(update.get("Display Name")))
+            
+            # Download only if required
+            if not is_downloaded(update):
+                download_update(update)
+            
+            if not requires_restart(update):
+                install_updates(update)
+            else:
+                # Restart is required
+                need_restart.append(update)
+
+            if len(need_restart) == 0:
+                return True
+
+        # OK, now we can deal with updates that require a restart
+        if console_user():
+            # Are we allowed to defer?
+            max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
+            if max_defer_date != False:
+                # Yes, we were allowed to defer
+                # Does the user want to defer?
+                if not user_wants_to_defer(max_defer_date,
+                                           "\n".join([u.get("Display Name") for u in need_restart])):
+                    # User doesn't want to defer, so set
+                    # things up to install update, and force
+                    # logout.
+                    prep_index_for_logout_install()
+                    force_update_on_logout()
+                    friendly_logout()
+                else:
+                    # User wants to defer, and os allowed to defer.
+                    # OK, just bail
+                    return True
+            else:
+                # User is not allowed to defer any longer
+                # so require a logout
+                prep_index_for_logout_install()
+                force_update_on_logout()
+                force_logout("\n".join([u.get("Display Name") for u in need_restart]))
+
+        elif ( nobody_logged_in() and
+               is_quiet_hours(args['QUIET_HOURS_START'],
+                              args['QUIET_HOURS_END'])):
+            print "Nobody is logged in and we are in quiet hours - starting unattended install..."
+            unattended_install(min_battery=args['MIN_BATTERY_LEVEL'])
+
+        else:
+            print ( "Updates require a restart but someone is logged in remotely "
+                    "or we are not in quiet hours - aborting" )
+            return False
+    
     except KeyboardInterrupt:
         # If any of the softwareupdate commands times out
         # we receive a KeyboardInterrupt
@@ -184,7 +206,7 @@ def create_lgwindow_launchagent():
                  "ProgramArguments": [ JAMFHELPER,
                                        '-windowType', 'fs',
                                        '-heading', 'Installing macOS updates...',
-                                       '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
+                                       '-icon', SWUPDATE_ICON,
                                        '-description', 'Please do not turn off this computer.' ],
                  "RunAtLoad": True,
                  "keepAlive": True
@@ -201,39 +223,19 @@ def lock_out_loginwindow():
                            '-F', '-S', 'LoginWindow',
                            HELPER_AGENT ])
     
-def get_update_list():
+def sync_update_list():
     print "Checking for updates"
-    
     # Get all recommended updates
-    list = cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 180)
-    return list[0].split("\n")
+    cmd_with_timeout([ SWUPDATE, '-l', '-r' ], 180)
 
-def parse_update_list(list):
-    # Declare somewhere to keep our list of updates
-    all_updates = { 'restart':[], 'norestart':[] }
 
-    # Human readable names are stored on the line below
-    # the 'real' name, and the restart information
-    # is stored with the human-readable name. So, we parse
-    # the human-readable text and then add the text from the
-    # line above it (which contains the 'real' name of the update)
-    # to our updates dict.
-    for i in range(len(list)):
-      if '[restart]' in list[i]:
-        all_updates['restart'].append(list[i-1][5:]) # Remove the '\t  (*|-) ' from the start of the line
-      elif '\t' in list[i] and not '[restart]' in list[i]:
-        all_updates['norestart'].append(list[i-1][5:])
-    print all_updates
-    return all_updates
+def install_update(update):
+    """ Install a single update """
+    update_name = "{}-{}".format(update.get("Identifier"),
+                                 update.get("Display Version"))
 
-def install_update_list(list):
-    print "Installing updates: %s" % " ".join(list)
-    result = cmd_with_timeout([ SWUPDATE, '-i', " ".join(list) ], 3600)
-
-def download_updates():
-    print "Downloading updates"
-    # Download applicable updates
-    cmd_with_timeout([ SWUPDATE, '-d', '-r' ], 600)
+    print "Installing: {}".format(update_name)
+    result = cmd_with_timeout([ SWUPDATE, '-i', update_name ], 3600)
     
 def prep_index_for_logout_install():
     # The ProductPaths key of the index file
@@ -298,7 +300,7 @@ def user_wants_to_defer(defer_until, updates):
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Software Update Available',
-                              '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
+                              '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
                               '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s." % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
                               '-button1', 'Restart now',
@@ -315,7 +317,7 @@ def force_logout(updates):
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Mandatory Restart Required',
-                              '-icon', '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns',
+                              '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
                               '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
                               '-button1', 'Restart now' ])
@@ -344,19 +346,13 @@ def nobody_logged_in():
 def friendly_logout():
     user = console_user()
     subprocess.call([ 'sudo', '-u', user, 'osascript', '-e', u'tell application "loginwindow" to  «event aevtrlgo»' ])
-
-def restart_required(updates):
-    return any('[restart]' in a for a in updates)
-
-def updates_available(updates):
-    # Returns True if there are not no updates :)
-    return not ( 'No new software available.' in updates or
-                 NO_NETWORK_MSG in updates)
+    
                  
 def install_recommended_updates():
     # An hour should be sufficient to install
     # updates, hopefully! 
     cmd_with_timeout([ SWUPDATE, '-i', '-r' ], 3600)
+    
 
 def min_battery_level(min):
     if is_a_laptop():
@@ -378,6 +374,87 @@ def using_ac_power():
 
 def is_a_laptop():
     return subprocess.check_output(['sysctl', 'hw.model']).find('MacBook') > 0
+
+
+def recommended_updates():
+    """ Return a dict of pending recommended updates """
+    updates = CFPreferencesCopyAppValue('RecommendedUpdates',
+                                        '/Library/Preferences/com.apple.SoftwareUpdate')
+    if len(updates) > 0:
+        return updates
+
+
+def is_downloaded(update):
+    """ Returns true if the update has been downloaded """
+    if update.get("Product Key") in os.listdir(UPDATES_CACHE):
+        print("{} is already downloaded".format(update.get("Product Key")))
+        return True
+    else:
+        return False
+              
+
+def is_recommended(update):
+    """ Returns true if the update is in the list of
+    pending recommended updates for this machine """
+    return update in recommended_updates()
+
+
+def requires_restart(update):
+    """ Returns True if the update requires a restart 
+
+        Pass in an update dict
+    """
+    # We look inside the .dist file in the update package to
+    # check for a RequireRestart flag.
+
+    # I'm not sure what the cleanest way to do this is.
+    # Parsing the output of softwareupdate -l is pretty horrible
+    # but I'm not convinced this approach is much better.
+
+    answer = False
+    distfile = None
+
+    for afile in os.listdir(os.path.join(UPDATES_CACHE, update.get("Product Key"))):
+        # The .dist file is localised (ie update.language.dist)
+        # We don't know the localisation adhead of time, so just look for
+        # any .dist file in the update - any one will do.
+        if afile.endswith(".dist"):
+            # Some updates have a 'zzzz' prepended to the productKey, but
+            # this isn't present in the name of the dist file.
+            canonical_name = afile.replace('zzzz', '')
+            distfile = os.path.join(UPDATES_CACHE, update.get("Product Key"), canonical_name)
+            break
+    try:
+        distinfo = ElementTree.parse(distfile)
+    except IOError as err:
+        raise Exception('{}: Unreadable\n  {}'.format(update.get("Product Key"), err))
+
+    # If the update requires a restart, it will have onConclusion = RequireRestart
+    # set in its package ddistribution file.
+    for pkg in distinfo.findall('choice/pkg-ref'):
+        if pkg.get('onConclusion') == "RequireRestart":
+            answer = True
+            break
+    return answer
+
+
+
+def download_update(update):
+    """ Download a single update, using the softwareupdate -d command 
+    
+        Pass in an update dict
+    """
+    # The name we pass to softwareupdate consists of:
+    # [Identifier]-[Display Version] so we need to derive that
+    # from the productKey we've been given.
+    identifier = "{}-{}".format(update.get("Identifier"),
+                                update.get("Display Version"))
+                 
+
+    print("Downloading {}".format(identifier))
+
+    cmd_with_timeout([SWUPDATE, '-d', identifier])
+
     
 if __name__ == "__main__":
     args = get_args()
