@@ -6,8 +6,8 @@
 # with the Computers name. NoMAD caches user AD group membership, so 
 # admin rights will remain, even when the machine is offsite.
 #
-# Date: Mon Jan 15 16:17:19 GMT 2018
-# Version: 0.1.9
+# Date: Tue 16 Jan 2018 14:30:26 GMT
+# Version: 0.2.0
 # Creator: dsavage
 #
 ##################################################################
@@ -38,6 +38,8 @@ Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep '/Use
 # Path to the preference
 NoMAD_Path="${Home_Path}/Library/Preferences/com.trusourcelabs.NoMAD.plist"
 
+echo "$NoMAD_Path" 
+
 if ! [ -e "$NoMAD_Path" ];
 then
 	exit 254; # NoMAD hasn't launched
@@ -63,16 +65,13 @@ then
 	exit 255; # No Kerberos ticket.
 fi
 
-Admin_Group=`defaults read $NoMAD_Path "Groups" | grep -i "$Computer_Name" | awk -F '"' '{print $2}' | tr '[:upper:]' '[:lower:]'`
+Admin_Group=`defaults read $NoMAD_Path "Groups" | grep -i $Computer_Name | tr -d '[:space:]' | awk -F ',' '{print $1}' | tr -d '"' | tr '[:upper:]' '[:lower:]'`
 
 UUN=`echo $Auth_User | tr @ " " | awk '{print $1}'`
 
 Who_is_Admin=`dscl . -read /Groups/admin | grep GroupMembership`
 
-Admin_Exists=`echo $Who_is_Admin | tr " " "\n" | grep $User_Name` 
-
 Domain_Controller="$(Random_Domain_Controller)"
-
 
 # Until we can ping a domain controller
 until ping -c 1 ${Domain_Controller}.ed.ac.uk | grep -q '1 packets received'
@@ -96,9 +95,12 @@ do
 	# check the local username matches the UUN or that the UUN is present in the local node.
 	if  [ "${User_Name}@ED.AC.UK" == "$Auth_User" ] || [ "$AD_User" == "$UUN_Present" ];
 	then
+		echo checking if admin rights need added
+		Admin_Exists=`echo $Who_is_Admin | tr " " "\n" | grep $AD_User` 
 		if ! [ "$Admin_Exists" == "$AD_User" ];
 		then
 			/usr/sbin/dseditgroup -o edit -a $AD_User -t user admin
+			echo adding admin rights for $AD_User 
 		fi
 	fi
 done
@@ -111,10 +113,12 @@ if ! [ "$Admin_Group" == "$Computer_Name" ] && [ "$UUN" == "$UUN_Present" ];
 then
 	if [ "$Admin_Exists" == "$UUN" ];
 	then
+		echo revoke admin for "$UUN" 
 		/usr/sbin/dseditgroup -o edit -d $UUN -t user admin
 	fi
 	if [ "$Admin_Exists" == "$User_Name" ];
 	then
+		echo revoke admin for "$User_Name" 
 		/usr/sbin/dseditgroup -o edit -d $User_Name -t user admin
 	fi
 fi
