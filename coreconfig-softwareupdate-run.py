@@ -239,10 +239,6 @@ def install_update(update):
 
     print "Installing: {}".format(update_name)
     result = cmd_with_timeout([ SWUPDATE, '-i', update_name ], 3600)
-<<<<<<< HEAD
-
-=======
->>>>>>> aaac69e5f1f81756e8d7dd582c6ea409deceda70
     
 def prep_index_for_logout_install():
     # The ProductPaths key of the index file
@@ -460,12 +456,7 @@ def download_update(update):
 
     print("Downloading {}".format(identifier))
 
-<<<<<<< HEAD
     cmd_with_timeout([SWUPDATE, '-d', identifier], 3600)
-=======
-    cmd_with_timeout([SWUPDATE, '-d', identifier])
->>>>>>> aaac69e5f1f81756e8d7dd582c6ea409deceda70
-
     
 if __name__ == "__main__":
     args = get_args()
