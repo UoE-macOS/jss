@@ -107,7 +107,11 @@ def process_updates(args):
 
         # Now we can deal with updates that require a restart
         if console_user():
-            # Are we allowed to defer?
+            # Someone is logged in. Set updates to install on
+            # Next logout:
+            force_update_on_next_logout()
+
+            # Are we allowed to defer logout?
             max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
             if max_defer_date != False:
                 # Yes, we were allowed to defer
@@ -117,18 +121,14 @@ def process_updates(args):
                     # User doesn't want to defer, so set
                     # things up to install update, and force
                     # logout.
-                    prep_index_for_logout_install()
-                    force_update_on_logout()
                     friendly_logout()
                 else:
-                    # User wants to defer, and os allowed to defer.
+                    # User wants to defer, and is allowed to defer.
                     # OK, just bail
                     return True
             else:
                 # User is not allowed to defer any longer
                 # so require a logout
-                prep_index_for_logout_install()
-                force_update_on_logout()
                 force_logout("\n".join([u.get("Display Name") for u in need_restart]))
 
         elif ( nobody_logged_in() and
@@ -257,7 +257,9 @@ def prep_index_for_logout_install():
     plistlib.writePlist(swindex, INDEX)
 
     
-def force_update_on_logout():
+def force_update_on_next_logout():
+    prep_index_for_logout_install()
+
     print "Setting updates to run on logout"
 
     # Write options into a hidden plist
