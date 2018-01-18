@@ -79,7 +79,7 @@ def process_updates(args):
     
     need_restart = []
     try:
-        #sync_update_list()
+        sync_update_list()
         
         if len(recommended_updates()) == 0:
             print "No Updates"
