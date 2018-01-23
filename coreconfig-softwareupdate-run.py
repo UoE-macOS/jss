@@ -276,14 +276,31 @@ def force_update_on_next_logout():
     # Touch the magic trigger file
     with open(TRIGGERFILE, 'w'):
         pass
+
+    # 10.13 seems to require this file. I have no real idea
+    # what the contents mean.
+    staged = { 'DarkModeEnabled': False,
+               'ShouldLaunchFirstLoginBuddy': True,
+               'StashMechanism': 'StashSplit',
+               'UpgradeType': 'Update',
+               'User': console_user(),
+               'UserID': pwd.getpwnam(console_user()).pw_uid,
+               'UserName': console_user() 
+            }
+    
+    plistlib.writePlist(staged, '/var/db/.StagedAppleUpgrade')
     
     # Kick the various daemons belonging to the softwareupdate 
     # mechanism. This seems to be necesaary to get Software Update
-    # to realise that the needed updates have been downloaded 
+    # to realise that the needed updates have been downloaded
+
+    # This doesn't work on 10.13. It appears even root isn't allowed
+    # to kill certain system processes - we just get 'Operation not permitted.'
     for process in SWUPDATE_PROCESSES:
         err = subprocess.call([ 'killall', '-HUP', process ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     sleep(5) 
-     
+
+ 
 
 def deferral_ok_until(limit):
     now = datetime.datetime.now()
