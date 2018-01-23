@@ -302,8 +302,8 @@ def deferral_ok_until(limit):
 
 def user_wants_to_defer(defer_until, updates):
    """ Pop a dialog asking the user if they would
-   like to defer a restart. Returns False for 'Defer'
-   and True for 'Restart Now'
+   like to defer a restart. Returns True for 'Defer'
+   and False for 'Restart Now'
    """
    
    message = ("One or more software updates require a restart:\n\n{}\n\n"
