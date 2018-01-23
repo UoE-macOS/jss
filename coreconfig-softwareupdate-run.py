@@ -57,7 +57,7 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
                       'softwareupdate_notify_agent',
                       'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
-SWUPDATE_ICON = 'System:Library:CoreServices:Software Update.app:Contents:Resources:SoftwareUpdate.icns'
+SWUPDATE_ICON = "/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 
 def get_args():
     try:
@@ -316,7 +316,7 @@ def user_wants_to_defer(defer_until, updates):
                   with timeout of (60 * 60 * 24 * 365) seconds -- 1 Year!
                       display dialog "{}" buttons {{"Restart Now", "Restart Later"}} ¬
                       with title "MacOS Supported Desktop" ¬
-                      with icon file "{}"
+                      with icon file (posix file "{}")
                   end timeout
                   End tell""".format(message, SWUPDATE_ICON)
    
@@ -350,7 +350,7 @@ def force_logout(updates):
                       display dialog "{}" buttons {{"Restart Now"}} ¬
                       default button 1 ¬
                       with title "MacOS Supported Desktop" ¬
-                      with icon file "{}"
+                      with icon file posix file ("{}")
                   end timeout
                   End tell""".format(message, SWUPDATE_ICON)
    
