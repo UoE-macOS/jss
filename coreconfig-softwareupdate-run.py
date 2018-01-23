@@ -57,7 +57,7 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
                       'softwareupdate_notify_agent',
                       'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
-SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
+SWUPDATE_ICON = 'System:Library:CoreServices:Software Update.app:Contents:Resources:SoftwareUpdate.icns'
 
 def get_args():
     try:
@@ -301,33 +301,68 @@ def deferral_ok_until(limit):
         return defer_date
 
 def user_wants_to_defer(defer_until, updates):
-    answer = subprocess.call([ JAMFHELPER,
-                              '-windowType', 'utility',
-                              '-title', 'UoE Mac Supported Desktop',
-                              '-heading', 'Software Update Available',
-                              '-icon', SWUPDATE_ICON,
-                              '-timeout', '99999',
-                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s." % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
-                              '-button1', 'Restart now',
-                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if answer == 2: # 0 = now, 2 = defer
-        print "User elected to defer update"
-        return True
-    else:
-        print "User permitted immediate update"
-        return False
-        
-def force_logout(updates):
-    answer = subprocess.call([ JAMFHELPER,
-                              '-windowType', 'utility',
-                              '-title', 'UoE Mac Supported Desktop',
-                              '-heading', 'Mandatory Restart Required',
-                              '-icon', SWUPDATE_ICON,
-                              '-timeout', '99999',
-                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
-                              '-button1', 'Restart now' ])
-    friendly_logout()
+   """ Pop a dialog asking the user if they would
+   like to defer a restart. Returns False for 'Defer'
+   and True for 'Restart Now'
+   """
+   
+   message = ("One or more software updates require a restart:\n\n{}\n\n"
+              "Updates must be applied regularly.\n\n"
+              "You will be required to restart after:\n\n  {}.").format(updates,
+                                                                        defer_until.strftime( "%a, %d %b %H:%M:%S")) 
 
+   script = """Tell application "System Events"
+                  activate
+                  with timeout of (60 * 60 * 24 * 365) seconds -- 1 Year!
+                      display dialog "{}" buttons {{"Restart Now", "Restart Later"}} ¬
+                      with title "MacOS Supported Desktop" ¬
+                      with icon file "{}"
+                  end timeout
+                  End tell""".format(message, SWUPDATE_ICON)
+   
+   proc = subprocess.Popen(['sudo', '-u', console_user(), 'osascript', '-'],
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+   
+   answer, err = proc.communicate(script)
+   
+   if answer == "button returned:Restart Now":
+       print "User permitted immediate update"
+       return False
+   else:
+       print "User elected to defer update"
+       return True
+
+def force_logout(updates):
+   """ Pop a dialog telling the user that they
+       must restart immediately.
+   """
+   
+   message = ("One or more updates which require a restart have been deferred "
+              "for the maximum allowable time:\n\n{}\n\n"
+              "A restart is now mandatory.\n\n"
+              "Please save your work and restart now to install the update").format(updates)
+                                                                        
+   script = """Tell application "System Events"
+                  activate
+                  with timeout of (60 * 60 * 24 * 365) seconds -- 1 Year!
+                      display dialog "{}" buttons {{"Restart Now"}} ¬
+                      default button 1 ¬
+                      with title "MacOS Supported Desktop" ¬
+                      with icon file "{}"
+                  end timeout
+                  End tell""".format(message, SWUPDATE_ICON)
+   
+   proc = subprocess.Popen(['sudo', '-u', console_user(), 'osascript', '-'],
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+
+   proc.communicate(script)
+   
+   # Doesn't matter what the user says! 
+   friendly_logout()
 def remove_deferral_tracking_file():
     if os.path.exists(DEFER_FILE):
         os.remove(DEFER_FILE)
