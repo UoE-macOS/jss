@@ -31,6 +31,7 @@
 
 import os
 import sys
+import pwd
 import subprocess
 import plistlib
 import datetime
@@ -284,7 +285,7 @@ def force_update_on_next_logout():
                'StashMechanism': 'StashSplit',
                'UpgradeType': 'Update',
                'User': console_user(),
-               'UserID': pwd.getpwnam(console_user()).pw_uid,
+               'UserID': str(pwd.getpwnam(console_user()).pw_uid),
                'UserName': console_user() 
             }
     
