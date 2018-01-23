@@ -35,6 +35,7 @@ import subprocess
 import plistlib
 import datetime
 import thread
+import platform
 from time import sleep
 from threading import Timer
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
@@ -57,7 +58,13 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
                       'softwareupdate_notify_agent',
                       'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
-SWUPDATE_ICON = "/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+
+# Looks as if the oldskool SoftwareUpdate icon is on its way out...
+if platform.mac_ver()[0].split('.')[1] == '12':
+    SWUPDATE_ICON = "/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+else:
+    SWUPDATE_ICON = "/System/Library/CoreServices/Install in Progress.app/Contents/Resources/Installer.icns"
+    
 
 def get_args():
     try:
