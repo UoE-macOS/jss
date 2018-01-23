@@ -81,7 +81,7 @@ def process_updates(args):
     try:
         sync_update_list()
         
-        if len(recommended_updates()) == 0:
+        if not recommended_updates():
             print "No Updates"
             remove_deferral_tracking_file()
             return True
@@ -420,8 +420,12 @@ def recommended_updates():
     """ Return a dict of pending recommended updates """
     updates = CFPreferencesCopyAppValue('RecommendedUpdates',
                                         '/Library/Preferences/com.apple.SoftwareUpdate')
-    if len(updates) > 0:
+    
+    # If there are no updates, explicitly return None
+    if updates and len(updates) > 0:
         return updates
+    else:
+        return None
 
 
 def is_downloaded(update):
