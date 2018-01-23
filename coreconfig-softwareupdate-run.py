@@ -101,9 +101,9 @@ def process_updates(args):
                     # to the list
 		    need_restart.append(update)
 
-            if len(need_restart) == 0:
-		# No updates require a restart, and we are done.
-                return True
+        if len(need_restart) == 0:
+            # No updates require a restart, and we are done.
+            return True
 
         # Now we can deal with updates that require a restart
         if console_user():
