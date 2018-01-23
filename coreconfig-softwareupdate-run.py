@@ -327,7 +327,7 @@ def user_wants_to_defer(defer_until, updates):
    
    answer, err = proc.communicate(script)
    
-   if answer == "button returned:Restart Now":
+   if answer == "button returned:Restart Now\n":
        print "User permitted immediate update"
        return False
    else:
