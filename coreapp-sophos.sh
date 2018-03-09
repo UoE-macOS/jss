@@ -8,10 +8,10 @@
 # This script is intended to be run on the JSS, with $4 - $6
 # being provided by the policy that includes this script.
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: "Wed Mar 6 16:44:41 GMT 2018"
+# Version: 0.1.5
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: ganders1
 #
 ##################################################################
 
@@ -93,8 +93,8 @@ then
         if [ $compare_version -gt 96 ]
         then
                 # Disable web protection - it leaks information and slows down web browsing
-                defaults write /Library/Preferences/com.sophos.sav WebProtectionFilteringEnabled -bool false
-                defaults write /Library/Preferences/com.sophos.sav WebProtectionScanningEnabled -bool false
+                defaults write /Library/Preferences/com.sophos.sav.plist WebProtectionFilteringEnabled -bool false
+                defaults write /Library/Preferences/com.sophos.sav.plist WebProtectionScanningEnabled -bool false
 		logger "$0: Found Sophos version 9.6.x + installed - will not attempt reinstall"
                 fix_autoupdate_plist
 		exit 0
@@ -135,6 +135,18 @@ then
     ## Clean up after ourselves
     rm -rf "${TEMP_DIR}"
 
+    # Reset the com.sophos.sav file, just incase
+    if test -e "/Library/Preferences/com.sophos.sav.plist"
+    then
+	    version=`defaults read /Applications/Sophos\ Anti-Virus.app/Contents/Info CFBundleShortVersionString | awk -F "." '{print $1}'`
+	    if [ $version == 9 ]
+	    then
+		    # Disable web protection
+		    defaults write /Library/Preferences/com.sophos.sav.plist WebProtectionFilteringEnabled -bool false
+		    defaults write /Library/Preferences/com.sophos.sav.plist WebProtectionScanningEnabled -bool false
+        fi
+    fi
+
     ## Update Sophos
     /usr/local/bin/SophosUpdate
 
@@ -146,4 +158,3 @@ else
     # don't need to worry about filling up the disk.
     exit 255
 fi
-
