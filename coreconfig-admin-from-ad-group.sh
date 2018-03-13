@@ -33,7 +33,7 @@ Computer_Name=`/usr/sbin/scutil --get ComputerName | tr '[:upper:]' '[:lower:]'`
 echo $Computer_Name
 
 # Incase of a mismatch between the local folder and the username
-Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep '/Users/' | awk '{print $2}'`
+Home_Path=`dscl . -read /Users/$User_Name | grep "NFSHomeDirectory" | grep -v "OriginalNFSHomeDirectory:" | grep '/Users/' | awk '{print $2}'`
 
 # Path to the preference
 NoMAD_Path="${Home_Path}/Library/Preferences/com.trusourcelabs.NoMAD.plist"
