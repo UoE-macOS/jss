@@ -3,11 +3,10 @@
 #
 ###################################################################
 #
-# Xerox Watchman script version 0.8
 # Script clears out the bad ppd code from the Xerox drivers.
 #
-# Date: Mon 03 Jul 2017 11:30:33 BST
-# Version: 0.1.1
+# Date: Thu 29 Mar 2018 15:25:43 BST
+# Version: 0.1.2
 # Creator: dsavage
 #
 ##################################################################
@@ -27,6 +26,7 @@ for pid in $pids
 do
    if [ $pid -ne $$ ]; then
     echo "[`date`] : XeroxWatchman.sh : Process is already running"
+    rm -f /var/tmp/XeroxWatchman.sh.pid
     exit 1;
    fi
 done
@@ -142,6 +142,20 @@ done)
 rm -f /tmp/DriverTest.txt 
 }
 
+Check_lpoperator ()
+{
+# All users should be in the Print Operator group, otherwise they can't interact with the printing system without admin rights.
+AllUsers=(`ls  "/Users/" | grep -v '^[.*]' | grep -v 'Shared'`)
+
+    for User_Name in ${AllUsers[@]}
+    do
+        User_LP=`id "${User_Name}" | grep "_lpoperator"`
+	    if [ -z $User_LP ]; then
+		    dseditgroup -o edit -a $User_Name _lpoperator
+	    fi
+    done
+}
+
 
 # Find out if the driver files need to be fixed
 AllPrinters=$(ls /private/etc/cups/ppd)
@@ -169,11 +183,12 @@ fi
 done
 
 # Sort out any driver issues with uncompressed files and corrupt .gzs.
-GZ_Driver_Cleanup 
+GZ_Driver_Cleanup
+
+Check_lpoperator
 
 echo "Deleting the lock file" >> $LogFile
 
 rm -f /var/tmp/XeroxWatchman.sh.pid
 
 exit 0;
-
