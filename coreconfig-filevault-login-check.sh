@@ -3,13 +3,12 @@
 ###################################################################
 #
 # This script triggers a custom event ('filevault-init')
-# if filevault is currently disabled and the user logging
-# in is a valid user in our directory service.
+# if filevault is currently disabled.
 #
-# Date: @@DATE
-# Version: @@VERSION
-# Origin: @@ORIGIN
-# Released by JSS User: @@USER
+# Date: Thu 29 Mar 2018 15:58:06 BST
+# Version: 0.1.5
+# Origin: https://github.com/UoE-macOS/jss.git
+# Released by JSS User: dsavage
 #
 ##################################################################
 
@@ -24,21 +23,11 @@ filevault_is_enabled() {
   [ $? == 0 ]
 }
 
-user_is_valid() {
-  echo "$0: Looking for user id number"
-  uid_num=$(ldapsearch -x -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
-        -s sub "(uid=${1})" "${LDAP_UIDNUM}" | awk -F ': ' '/^'"${LDAP_UIDNUM}"'/ {print $2}')
-
-  [ ! -z ${uid_num} ]
-}
-
 # in-built jamf variable $3, doesn't seem to be returning a valid username, even if a uun account is logged on.
 user_name=`ls -l /dev/console | awk '{print $3}'`
 
 if ! filevault_is_enabled
 then
-  if user_is_valid ${user_name}
-  then
     # This causes the 'UoE - FileVault - Initialise' policy to
     # set things up such that FileVault will be enabled for the
     # current user on next logout
@@ -60,9 +49,8 @@ then
 EOT
 )"
 
-  else
-    echo "$0: Filevault inactive but non-valid user"
-  fi
 else
   echo "$0: Filevault is active"
 fi
+
+exit 0;
