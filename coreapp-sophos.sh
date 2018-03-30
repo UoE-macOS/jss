@@ -8,8 +8,8 @@
 # This script is intended to be run on the JSS, with $4 - $6
 # being provided by the policy that includes this script.
 #
-# Date: "Wed Mar 6 16:44:41 GMT 2018"
-# Version: 0.1.5
+# Date: "Fri 30 Mar 2018 16:35:58 BST"
+# Version: 0.1.6
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: ganders1
 #
@@ -88,7 +88,7 @@ EOF
 # Check if Sophos has been previously installed
 if [ -f "/Applications/Sophos Anti-Virus.app/Contents/MacOS/Sophos Anti-Virus" ]
 then
-        version=`defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString)`
+        version=`defaults read "/Applications/Sophos Anti-Virus.app/Contents/Info" CFBundleShortVersionString`
         compare_version=`echo "$version" | awk -F "." '{print $1$2}'`
         if [ $compare_version -gt 96 ]
         then
