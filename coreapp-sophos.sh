@@ -8,15 +8,15 @@
 # This script is intended to be run on the JSS, with $4 - $6
 # being provided by the policy that includes this script.
 #
-# Date: "Fri 30 Mar 2018 16:35:58 BST"
-# Version: 0.1.6
+# Date: "Thu  5 Apr 2018 12:07:13 BST"
+# Version: 0.1.7
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: ganders1
+# Released by JSS User: dsavage
 #
 ##################################################################
 
 TEMP_DIR="/Library/Application Support/JAMF/tmp/sophos"
-INSTALL_PROGRAM="/Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
+INSTALL_PROGRAM="Sophos Installer.app/Contents/MacOS/tools/InstallationDeployer"
 
 # These variables are passed via the JSS
 UPDATE_SERVER="$4"
@@ -33,6 +33,27 @@ UPDATE_INTERVAL="$7"
 
 # Make sure it's empty
 rm -rf "${TEMP_DIR}"/*
+
+SOPHOS_SRV_TST=`/usr/bin/curl -l ${UPDATE_SERVER}/${INSTALL_FILE} | grep "404"`
+[ ! -z "${SOPHOS_SRV_TST}" ] && exit 255;
+
+download_verify() {
+# Rather than try to keep up with Sophos upgrades, download the newest version from the local source
+/usr/bin/curl ${UPDATE_SERVER}/${INSTALL_FILE} > ${TEMP_DIR}/${INSTALL_FILE}
+cd "${TEMP_DIR}"
+# The Sophos installer is 214664 at present.
+minimumsize=200000
+actualsize=$(du -k ${INSTALL_FILE} | cut -f 1)
+if [ $actualsize -gt $minimumsize ]; then
+    logger "$0: Downloaded Sophos installer, unzipping."
+    unzip ${INSTALL_FILE} 
+else
+    logger "$0: Failed to download Sophos, invalid filesize: $actualsize, file location may have changed."
+    exit 255
+fi
+
+}
+
 
 fix_autoupdate_plist() {
     cat > /Library/Preferences/com.sophos.sau.plist <<EOF
@@ -100,6 +121,8 @@ then
 		exit 0
         else
 	        logger "$0: Sophos < 9.6 found - will attempt to re-install"
+	            # First make sure we can get a valid Sophos download
+	            download_verify
 	        	# Run Sophos' uninstall process to allow a clean version to be applied.
 	        	SophosInstaller=`find "/Library/Application Support/Sophos" -type d -name "Installer.app"`
 	        	"${SophosInstaller}"/Contents/MacOS/tools/InstallationDeployer --remove
@@ -112,14 +135,9 @@ then
         fi      
 else
     logger "$0: No previous sophos installation detected. Will attempt install."
+    download_verify
 fi
 
-# Download and install Sophos AV
-
-# Rather than try to keep up with Sophos upgrades, download the newest version from the local source
-/usr/bin/curl ${UPDATE_SERVER}/${INSTALL_FILE} > ${TEMP_DIR}/${INSTALL_FILE}
-cd "${TEMP_DIR}"
-unzip ${INSTALL_FILE} 
 
 # Install Sophos
 # Inexplicably this ends up non-executable
@@ -158,3 +176,4 @@ else
     # don't need to worry about filling up the disk.
     exit 255
 fi
+
