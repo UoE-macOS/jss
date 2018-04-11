@@ -1,15 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
 ###################################################################
 #
 # Script to install Sophos Antivirus from local infratructure and
 # configure autoupdate.
 #
-# This script is intended to be run on the JSS, with $4 - $6
+# This script is intended to be run on the JSS, with $4 - $7
 # being provided by the policy that includes this script.
 #
-# Date: "Thu  5 Apr 2018 12:07:13 BST"
-# Version: 0.1.7
+# Date: "Thu  6 Apr 2018 12:07:13 BST"
+# Version: 0.1.8
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -35,21 +35,22 @@ UPDATE_INTERVAL="$7"
 rm -rf "${TEMP_DIR}"/*
 
 SOPHOS_SRV_TST=`/usr/bin/curl -l ${UPDATE_SERVER}/${INSTALL_FILE} | grep "404"`
-[ ! -z "${SOPHOS_SRV_TST}" ] && exit 255;
+[ ! "${SOPHOS_SRV_TST}" == "Binary file (standard input) matches" ] && exit 253;
 
 download_verify() {
 # Rather than try to keep up with Sophos upgrades, download the newest version from the local source
-/usr/bin/curl ${UPDATE_SERVER}/${INSTALL_FILE} > ${TEMP_DIR}/${INSTALL_FILE}
-cd "${TEMP_DIR}"
+/usr/bin/curl "${UPDATE_SERVER}/${INSTALL_FILE}" > "${TEMP_DIR}/${INSTALL_FILE}"
 # The Sophos installer is 214664 at present.
-minimumsize=200000
-actualsize=$(du -k ${INSTALL_FILE} | cut -f 1)
+minimumsize=20000
+actualsize=$(du -k "${TEMP_DIR}/${INSTALL_FILE}" | cut -f 1)
+echo $actualsize
 if [ $actualsize -gt $minimumsize ]; then
     logger "$0: Downloaded Sophos installer, unzipping."
-    unzip ${INSTALL_FILE} 
+    cd "${TEMP_DIR}"
+    unzip "${INSTALL_FILE}"
 else
     logger "$0: Failed to download Sophos, invalid filesize: $actualsize, file location may have changed."
-    exit 255
+    exit 254
 fi
 
 }
@@ -176,4 +177,3 @@ else
     # don't need to worry about filling up the disk.
     exit 255
 fi
-
