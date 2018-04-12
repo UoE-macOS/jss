@@ -49,7 +49,7 @@ if [ $actualsize -gt $minimumsize ]; then
     cd "${TEMP_DIR}"
     unzip "${INSTALL_FILE}"
 else
-    logger "$0: Failed to download Sophos, invalid filesize: $actualsize, file location may have changed."
+    echo "$0: Failed to download Sophos, invalid filesize: $actualsize, file location may have changed."
     exit 254
 fi
 
@@ -147,7 +147,7 @@ chmod +x "${TEMP_DIR}/${INSTALL_PROGRAM}"
 
 if [ "$?" == 0 ]
 then
-    logger "$0: Installed Sophos"
+    echo "$0: Installed Sophos"
 
     fix_autoupdate_plist
 
@@ -171,7 +171,7 @@ then
 
     exit 0
 else
-    logger "$0: Failed to install Sophos. Error Code: ${?}"
+    echo "$0: Failed to install Sophos. Error Code: ${?}"
     # Don't clean up: allow support staff to try to work our what went wrong!
     # The script will clean up the temp area on its next invocation so we
     # don't need to worry about filling up the disk.
