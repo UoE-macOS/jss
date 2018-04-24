@@ -3,10 +3,11 @@
 ###################################################################
 #
 # This script triggers a custom event ('filevault-init')
-# if filevault is currently disabled.
+# if filevault is currently disabled and the user logging
+# in is a valid user in our directory service.
 #
-# Date: Thu 29 Mar 2018 15:58:06 BST
-# Version: 0.1.5
+# Date: Tue 24 Apr 2018 14:29:02 BST
+# Version: 0.1.6
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -28,6 +29,9 @@ user_name=`ls -l /dev/console | awk '{print $3}'`
 
 if ! filevault_is_enabled
 then
+    # Reset the filevault status incase the defered enablement is broken.
+    fdesetup disable
+    rm -f /Library/Preferences/com.apple.fdesetup.plist
     # This causes the 'UoE - FileVault - Initialise' policy to
     # set things up such that FileVault will be enabled for the
     # current user on next logout
