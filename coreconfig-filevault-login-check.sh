@@ -6,18 +6,24 @@
 # if filevault is currently disabled and the user logging
 # in is a valid user in our directory service.
 #
-# Date: Tue 24 Apr 2018 14:29:02 BST
-# Version: 0.1.6
+# Date: Thu 26 Apr 2018 15:42:12 BST
+# Version: 0.1.7
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
 ##################################################################
 
-LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
-LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
-LDAP_SCHOOL="eduniSchoolCode"
-LDAP_FULLNAME="cn"
-LDAP_UIDNUM="uidNumber"
+
+heading="FileVault Encryption Setup"
+
+description="You need to log out and enter your password to complete the FileVault encryption process.
+
+This is required on mobile devices which contain University data."
+
+icon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/FileVaultIcon.icns"
+
+jamfHelper="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+
 
 filevault_is_enabled() {
   fdesetup status | grep 'FileVault is On'
@@ -38,21 +44,13 @@ then
     /usr/local/bin/jamf policy -event 'filevault-init'
     
     # Now force the user to log out to complete the enablement process
-    result="$(sudo -u ${user_name} osascript <<EOT
-      repeat while application "Finder" is not running
-        delay 1
-      end repeat
-      tell application "System Events"
-        activate
-        with timeout of 36000 seconds
-          display dialog "You need to log out and enter your password in order to complete the disk encryption process" buttons {"Log Out Now"} default button 1
-        end timeout
-      end tell
-      -- Log out without giving any further warnings
-      tell application "loginwindow" to «event aevtrlgo»
-EOT
-)"
+	HELPER=`"${jamfHelper}" -windowType utility -icon "$icon" -heading "$heading" -description "$description" -button1 "Log Out Now"`
+	echo "$0: jamf helper result was $HELPER";
 
+	if [ "$HELPER" == "0" ]; then
+		# Perform a graceful logout
+		result="$(sudo -u ${user_name} osascript -e 'tell application "loginwindow" to «event aevtrlgo»')"
+	fi
 else
   echo "$0: Filevault is active"
 fi
