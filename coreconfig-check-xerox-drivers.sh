@@ -5,8 +5,8 @@
 #
 # Script clears out the bad ppd code from the Xerox drivers.
 #
-# Date: Thu 29 Mar 2018 15:25:43 BST
-# Version: 0.1.2
+# Date: Tue  8 May 2018 14:12:39 BST
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
@@ -150,8 +150,8 @@ AllUsers=(`ls  "/Users/" | grep -v '^[.*]' | grep -v 'Shared'`)
     for User_Name in ${AllUsers[@]}
     do
         User_LP=`id "${User_Name}" | grep "_lpoperator"`
-	    if [ -z $User_LP ]; then
-		    dseditgroup -o edit -a $User_Name _lpoperator
+	    if [ -z "${User_LP}" ]; then
+		    dseditgroup -o edit -a "${User_Name}" _lpoperator
 	    fi
     done
 }
