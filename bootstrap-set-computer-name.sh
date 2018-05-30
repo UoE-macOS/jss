@@ -11,8 +11,8 @@
 # then the name will be based on the school code of the user
 # who is currently logged in, combined with the computer serial number.
 #
-# Date: "Fri 23 Jun 16:26:38 2016 +0100"
-# Version: 0.1.5
+# Date: "Wed 30 May 2018 15:52:25 BST"
+# Version: 0.1.6
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -51,7 +51,7 @@ main() {
       [ -z ${name} ] && name=${school}-$(get_serial)
     ;;
     *)
-      name=${school}-"Unknown"
+      name=$(get_support)-$(get_serial)
     ;;
   esac
   /usr/sbin/scutil --set LocalHostName $( echo "${name}" | awk -F '.' '{print $1}' )
@@ -94,14 +94,14 @@ get_mobility() {
   fi
 
   echo ${mobility}
-  logger "$0: Mobility: ${mobility}"
+  echo "$0: Mobility: ${mobility}"
 }
 
 get_serial() {
   # Full serial is a bit long, use the last 8 chars instead.
   serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
   echo ${serial_no}
-  logger "$0: Serial No: ${serial_no}"
+  echo "$0: Serial No: ${serial_no}"
 }
 
 get_school() {
@@ -112,24 +112,123 @@ get_school() {
   # Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
   [ -z "${school_code}" ] && school_code="Unknown"
 
-  logger "$0: School Code: ${school_code}"
+  echo "$0: School Code: ${school_code}"
   
   echo "${school_code}"
 }
 
 get_macaddr() {
-  macaddr=$(ifconfig en0 ether | awk '/ether/ {print $NF}')
-  logger "$0: MAC Address: ${macaddr}"
+  active_adapter=`route get ed.ac.uk | grep interface | awk '{print $2}'`
+  macaddr=$(ifconfig $active_adapter ether | awk '/ether/ {print $NF}')
+  echo "$0: MAC Address: ${macaddr}"
   echo ${macaddr}
 }
 
 get_edlan_dnsname() {
   mac=$(get_macaddr)
-  netbios=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=NetBIOS" 2>/dev/null) 
-  # Remove anything potentially dodgy 
-  #dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
-  echo ${netbios}
-  logger "$0: NetBIOS Name: ${netbios}"
+  if ! [ -z ${mac} ]; then
+     #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
+     dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     # Remove anything potentially dodgy 
+     dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
+     echo ${dnsname}
+  fi
+  echo "$0: DNS Name: ${dnsname}"
+}
+
+get_support() {
+# Try using the local support account to define the name if we can't define it in other ways, like non-uun accounts or ldap/network issue.
+ITSupport=`ls /Users | grep -v "uoesupport" | grep "support"`
+if [ -z "$ITSupport" ]; then 
+    # Check for the named accounts
+    GeoSupport=`ls /Users  | grep "geosadm"`
+    if ! [ -z "$GeoSupport" ]; then 
+        SupportAccount="$GeoSupport" 
+    fi
+    SSPSupport=`ls /Users  | grep "sspsitadmin"`
+    if ! [ -z "$SSPSupport" ]; then 
+        SupportAccount="$SSPSupport" 
+    fi
+    BioSupport=`ls /Users | grep "sbsadmin"`
+    if ! [ -z "$BioSupport" ]; then 
+        SupportAccount="$BioSupport" 
+    fi
+else
+    SupportAccount="$ITSupport" 
+fi
+
+case $SupportAccount in
+camsupport)
+  Code="P7A"
+  ;;
+csesupport)
+  Code="P73"
+  ;;
+divsupport)
+  Code="S27"
+  ;;
+ecasupport)
+  Code="S2A"
+  ;;
+econsupport)
+  Code="S23"
+  ;;
+educsupport)
+  Code="S29"
+  ;;
+eusasupport )
+  Code="P99"
+  ;;
+geosadm)
+  Code="S4B"
+  ;;
+geossupport)
+  Code="S4B"
+  ;;
+hcasupport)
+  Code="S2B"
+  ;;
+healthsupport)
+  Code="S2F"
+  ;;
+isgsupport)
+  Code="P5L"
+  ;;
+lawsupport)
+  Code="S26"
+  ;;
+mathsupport)
+  Code="S46"
+  ;;
+mvmsupport)
+  Code="S37"
+  ;;
+pplssupport)
+  Code="S2C"
+  ;;
+ppssupport)
+  Code="P7F"
+  ;;
+  sbsadmin)
+  Code="S42"
+  ;;
+scecollsupport)
+  Code="S4A"
+  ;;
+sopasupport )
+  Code="S44"
+  ;;
+sspsitadmin)
+  Code="S22"
+  ;;
+srssupport)
+  Code="P7K"
+  ;;
+*)
+  Code="Unknown"
+  ;;
+esac
+echo "${Code}"
 }
 
 # Do something!
