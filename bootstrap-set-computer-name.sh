@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #######################################################################
 #
@@ -11,8 +11,8 @@
 # then the name will be based on the school code of the user
 # who is currently logged in, combined with the computer serial number.
 #
-# Date: "Wed 30 May 2018 15:52:25 BST"
-# Version: 0.1.6
+# Date: "Tue  5 Jun 2018 10:47:32 BST"
+# Version: 0.1.7
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -42,16 +42,23 @@ main() {
   case $mobility in
     mobile)
       name=${school}-$(get_serial)
+      echo $name Laptop
     ;;
     desktop)
       name=$(get_edlan_dnsname)
       # If we don't get a name for some reason
       # then just use the same scheme as for
       # laptops.
+      
       [ -z ${name} ] && name=${school}-$(get_serial)
+      
+      echo $name Desktop
     ;;
     *)
+      echo $mobility
       name=$(get_support)-$(get_serial)
+      
+      echo $name Wildcard
     ;;
   esac
   /usr/sbin/scutil --set LocalHostName $( echo "${name}" | awk -F '.' '{print $1}' )
@@ -92,16 +99,19 @@ get_mobility() {
   else
     mobility=desktop
   fi
+# Needs to go to STDERR to avoid passing back bad values.
+echo "$0: Mobility: ${mobility}">&2
 
-  echo ${mobility}
-  echo "$0: Mobility: ${mobility}"
+echo ${mobility}
 }
 
 get_serial() {
   # Full serial is a bit long, use the last 8 chars instead.
   serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
+  # Needs to go to STDERR to avoid passing back bad values.
+  echo "$0: Serial No: ${serial_no}" >&2
+
   echo ${serial_no}
-  echo "$0: Serial No: ${serial_no}"
 }
 
 get_school() {
@@ -112,7 +122,8 @@ get_school() {
   # Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
   [ -z "${school_code}" ] && school_code="Unknown"
 
-  echo "$0: School Code: ${school_code}"
+  # Needs to go to STDERR to avoid passing back bad values.
+  echo "$0: School Code: ${school_code}" >&2
   
   echo "${school_code}"
 }
@@ -120,7 +131,9 @@ get_school() {
 get_macaddr() {
   active_adapter=`route get ed.ac.uk | grep interface | awk '{print $2}'`
   macaddr=$(ifconfig $active_adapter ether | awk '/ether/ {print $NF}')
-  echo "$0: MAC Address: ${macaddr}"
+  # Needs to go to STDERR to avoid passing back bad values.
+  echo "$0: MAC Address: ${macaddr}" >&2
+  
   echo ${macaddr}
 }
 
@@ -131,9 +144,11 @@ get_edlan_dnsname() {
      dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
      # Remove anything potentially dodgy 
      dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
-     echo ${dnsname}
+     # Needs to go to STDERR to avoid passing back bad values.
+     echo "$0: DNS Name: ${dnsname}" >&2
   fi
-  echo "$0: DNS Name: ${dnsname}"
+  
+  echo ${dnsname}
 }
 
 get_support() {
@@ -228,6 +243,9 @@ srssupport)
   Code="Unknown"
   ;;
 esac
+# Needs to go to STDERR to avoid passing back bad values.
+echo "$0: School Code (based on support account): ${Code}" >&2
+
 echo "${Code}"
 }
 
