@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# see unidesk - I180508-1341\01
+
+# Make sure java is installed
+if [ -d /Library/Internet\ Plug-Ins/JavaAppletPlugin.plugin ]; then
+	echo "The java plugin exists"
+else
+	echo "!!!!!!!!!!!!!!!!!!! The java plugin does not exists !!!!!!!!!!!!!!!!!!!"
+    /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+-windowType utility\
+-title 'UoE Mac Supported Desktop'\
+-heading 'eRecruitment & eFinancials Java Configuration'\
+-icon '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns'\
+-timeout 99999\
+-description "$(echo -e Could not find the Java Plug-in.\\n\\nPlease ensure Java is installed)"\
+-button1 'Ok'
+	exit 1;
+fi
+
+# Path to the relevant file
+Java_Security="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/security/java.security "
+# Just for ref there is a second version of this file - /Library/Java/JavaVirtualMachines/jdk1.8.0_171.jdk/Contents/Home/bin/jre/lib/security/java.security
+
+# The 2 strings we will switch
+No_MD5="jdk.jar.disabledAlgorithms=MD2, RSA keySize < 1024, DSA keySize < 1024"
+MD5="jdk.jar.disabledAlgorithms=MD2, MD5, RSA keySize < 1024, DSA keySize < 1024"
+
+# Grep the relevant line to get our present state
+Check_Algorithm=`grep "jdk.jar.disabledAlgorithms" "${Java_Security}"`
+
+Security_State=""
+
+# Flip the strings
+case "$Check_Algorithm" in
+	"$MD5")
+		perl -pi -e "s/$MD5/$No_MD5/" "${Java_Security}"
+        Security_State="The eRecruitment & eFinancials Java Configuration has been applied."
+       	;;
+    "$No_MD5")
+		# Undo the security change
+		perl -pi -e "s/$No_MD5/$MD5/" "${Java_Security}"
+        Security_State="The eRecruitment & eFinancials Java Configuration has been removed."
+    	;;
+   	*) 
+    	echo "!!!!!!!!!!!!!!!!!!! FILE:${Java_Security} in unknown state !!!!!!!!!!!!!!!!!!!"
+        Security_State="The eRecruitment & eFinancials Java Configuration failed! Unknown state in java.security."
+		exit 1;
+    	;;
+esac
+
+# Notify the user
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+-windowType utility\
+-title 'UoE Mac Supported Desktop'\
+-heading 'eRecruitment & eFinancials Java Configuration'\
+-icon '/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/deploy/JavaControlPanel.prefPane/Contents/Resources/Java7VM.icns'\
+-timeout 99999\
+-description "$Security_State"\
+-button1 'Ok'
+
+exit 0;
