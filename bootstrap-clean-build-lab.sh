@@ -31,8 +31,7 @@ function cleanup {
     echo "Cleaned up"
 }
 
-# Cleanup if andebug2: channel 0: window 998765 sent adjust 49811
-ything goes wrong
+# Cleanup if anything goes wrong
 trap cleanup EXIT
 
 function os_version_ok {
