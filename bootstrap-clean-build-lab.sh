@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 ###################################################################
 #
 # This script will perform a clean build of a machine running 10.13.>=4
@@ -26,6 +26,10 @@ QUICKADD_PKG="/Library/MacSD/QuickAddLab-0.1-1.pkg" # Should have been installed
 tmpdir=$(mktemp -d /tmp/cleanbuild.XXXX)
 
 function cleanup {
+	if mount | grep Install_macOS_10.13.6-${BUILD_ID}
+    then
+		diskutil unmountdisk /Volumes/Install_macOS_10.13.6-${BUILD_ID}
+    fi
     rm -rf ${tmpdir}
     pgrep jamfHelper && killall jamfHelper
     echo "Cleaned up"
@@ -77,7 +81,7 @@ fi
 pushd ${tmpdir} 
 
 # Kill any existing jamfHelper, and throw up our own
-killall jamfHelper
+pgrep jamfHelper && killall jamfHelper
 
 /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
   	-windowType fs\
@@ -109,10 +113,9 @@ then
     exit 1
 else
     /Volumes/Install_macOS_10.13.6-17G65/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall \
-        --volume / \
-        --newvolumename "Macintosh HD"
-        --converttoapfs YES \
+    	--eraseinstall \
+        --newvolumename "Macintosh HD" \
         --agreetolicense \
         --nointeraction \
-        --installpackage ${QUICKADD_PACKAGE}
+        --installpackage ${QUICKADD_PKG} > /tmp/clean-build.log 2>&1
 fi
