@@ -3,7 +3,7 @@
 set -euo pipefail
 ###################################################################
 #
-# This script will perform a clean build of a machine running 10.13.>4
+# This script will perform a clean build of a machine running 10.13.>=4
 #
 # The variable BUILD_ID should be provided with, the build ID of the
 # version of 10.13 to be used to initiate the build. 
@@ -27,10 +27,12 @@ tmpdir=$(mktemp -d /tmp/cleanbuild.XXXX)
 
 function cleanup {
     rm -rf ${tmpdir}
+    pgrep jamfHelper && killall jamfHelper
     echo "Cleaned up"
 }
 
-# Cleanup if anything goes wrong
+# Cleanup if andebug2: channel 0: window 998765 sent adjust 49811
+ything goes wrong
 trap cleanup EXIT
 
 function os_version_ok {
@@ -48,8 +50,18 @@ function boot_vol_is_apfs {
     [ "$(diskutil info / | grep Personality | awk '{print $NF}')" == 'APFS' ]
 }
 
+logged_in_user=$(python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; 
+import sys; 
+username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; 
+username = [username,""][username in [u"loginwindow", None, u""]]; 
+sys.stdout.write(username);')
 
-if ! os_version_ok  
+
+if [ "$logged_in_user" != "_mbsetupuser" ]
+then
+    echo "This script has only been tested for use while the setupassustant is running"
+    exit 1
+elif ! os_version_ok  
 then
     echo "OS version is not 10.13 >= 10.13.4"
     exit 1
@@ -64,6 +76,17 @@ then
 fi
 
 pushd ${tmpdir} 
+
+# Kill any existing jamfHelper, and throw up our own
+killall jamfHelper
+
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
+  	-windowType fs\
+  	-title 'UoE Mac Supported Desktop'\
+  	-heading 'Completing system installation.'\
+  	-icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
+  	-description 'This machine is rebuilding, please use another computer.' &
+
 
 # First, download the script that we will use to download 10.13 from Apple's servers
 if curl -L "${DOWNLOADER_URL}" > "${DOWNLOADER}"
@@ -94,7 +117,3 @@ else
         --nointeraction \
         --installpackage ${QUICKADD_PACKAGE}
 fi
-
-
-
-
