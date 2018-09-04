@@ -35,8 +35,9 @@ function cleanup {
     echo "Cleaned up"
 }
 
-# Cleanup if anything goes wrong
-trap cleanup EXIT
+# Cleanup if anything goes wrong. If things go right we are 
+# going to reboot and wipe the disk, so no need to cleanup :-) 
+trap cleanup ERR
 
 function os_version_ok {
     # Now we can attempt the clean build. Check environment is sensible. We need:
@@ -62,8 +63,8 @@ sys.stdout.write(username);')
 
 if [ "$logged_in_user" != "_mbsetupuser" ]
 then
-    echo "This script has only been tested for use while the setupassustant is running"
-    exit 1
+    echo "WARNING: This script has only been tested for use while the setupassustant is running"
+    # exit 1
 elif ! os_version_ok  
 then
     echo "OS version is not 10.13 >= 10.13.4"
@@ -112,10 +113,12 @@ then
     echo "Something went wrong - failed to find the installer!"
     exit 1
 else
+    # There is a bt of a delay after this returns, before we reboot.
+    # Hopefully enough for the policy to report success to the JSS.
     /Volumes/Install_macOS_10.13.6-17G65/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall \
     	--eraseinstall \
         --newvolumename "Macintosh HD" \
         --agreetolicense \
         --nointeraction \
-        --installpackage ${QUICKADD_PKG} > /tmp/clean-build.log 2>&1
+        --installpackage ${QUICKADD_PKG}
 fi
