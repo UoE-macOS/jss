@@ -20,7 +20,7 @@ set -euxo pipefail
 
 BUILD_ID="${4}" # Currently 17G65
 DOWNLOADER="installinstallmacos.py"
-DOWNLOADER_URL="https://raw.githubusercontent.com/grahampugh/macadmin-scripts/master/${DOWNLOADER}"
+DOWNLOADER_URL="https://raw.githubusercontent.com/UoE-macOS/tools/master/${DOWNLOADER}"
 QUICKADD_PKG="/Library/MacSD/QuickAddLab-0.1-1.pkg" # Should have been installed before this script runs
 
 tmpdir=$(mktemp -d /tmp/cleanbuild.XXXX)
