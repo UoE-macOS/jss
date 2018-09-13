@@ -38,9 +38,11 @@ function current_value {
 if [[ "${4}" == "NONE" ]]
 # We've been asked to disable admin groups
 then
+    echo "Disabling admin groups"
     GROUPLIST="not set"
     command="${TOOL} -nogroups"
 else
+    echo "Setting admin groups to '${GROUPLIST}'..."
     command='${TOOL} -groups "${GROUPLIST}"'
 fi
 
@@ -51,7 +53,6 @@ then
     echo "No change needed"
     exit 0
 else
-    echo "Setting admin groups to '${GROUPLIST}'..."
     # Do it.
     eval ${command}
     if [ $? -eq 0 ] && [[ "$(current_value)"  == "${GROUPLIST}" ]]
