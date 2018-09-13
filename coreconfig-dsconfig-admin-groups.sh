@@ -12,27 +12,38 @@
 # Released by JSS User: @@USER
 #
 ##################################################################
-set -eu 
+set -eu
 
 TOOL='/usr/sbin/dsconfigad'
 
 # $4 should be a comma-separated list of groups
-if [ ${#} -eq 4 ]
+if [[ ! -z ${4-} ]]
 then
     GROUPLIST="${4}"
 else
     echo "USAGE: ${0} arg1 arg2 arg3 GROUPLIST"
     echo ""
     echo "GROUPLIST should be a comma-separated list of AD groups that will"
-    echo "be allowed admin rights on this machine, or an empty string ('')."
+    echo "be allowed admin rights on this machine, or the string NONE"
     exit 255
 fi
 
 function current_value {
     # Fragile but seems to work.
     current_value="$(${TOOL} -show | grep "Allowed admin groups" | awk 'BEGIN {FS = "="};{print $2}' | sed 's/ //')"
-    echo ${current_value}
+    echo "${current_value}"
 }
+
+
+if [[ "${4}" == "NONE" ]]
+# We've been asked to disable admin groups
+then
+    GROUPLIST="not set"
+    command="${TOOL} -nogroups"
+else
+    command='${TOOL} -groups "${GROUPLIST}"'
+fi
+
 
 echo "Checking AD Admin Groups..."
 if [[ "$(current_value)" == "${GROUPLIST}" ]]
@@ -40,13 +51,14 @@ then
     echo "No change needed"
     exit 0
 else
-    echo "Setting admin groups to ${GROUPLIST}..."
-    ${TOOL} -groups "${GROUPLIST}"
+    echo "Setting admin groups to '${GROUPLIST}'..."
+    # Do it.
+    eval ${command}
     if [ $? -eq 0 ] && [[ "$(current_value)"  == "${GROUPLIST}" ]]
-    then      
+    then
         echo "Succeeded"
         exit 0
-    else    
+    else
         echo "Failed"
         exit 1
     fi
