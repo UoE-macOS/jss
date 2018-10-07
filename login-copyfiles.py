@@ -55,9 +55,10 @@ def main(args):
         try:
 
             copy_item(source, target, args)
-        except Exception as exc:
+        except TypeError as exc:
+            # probably just a file that doesn't exist
             print(exc)
-            raise
+            
 
     log("Done.") 
         
