@@ -33,6 +33,12 @@
 PROFILES_DIR=/Users/Shared/CustomDisplayProfiles
 TOOL_PATH=/usr/local/bin/customdisplayprofiles
 
+if [ ! -d $PROFILES_DIR ] || [ ! -x $TOOL_PATH ]
+then
+    echo "Either $PROFILES_DIR or $TOOL_PATH is missing"
+    exit 255
+fi
+
 for DISPLAY_INDEX in $(ls "${PROFILES_DIR}"); do
     echo "Setting profile for display $DISPLAY_INDEX..."
     sudo -u $3 $TOOL_PATH set --display $DISPLAY_INDEX "$PROFILES_DIR/$DISPLAY_INDEX"/*
