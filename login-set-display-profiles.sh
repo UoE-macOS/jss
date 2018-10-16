@@ -41,7 +41,7 @@ TOOL_PATH=$5
 if [ ! -d $PROFILES_DIR ] || [ ! -x $TOOL_PATH ]
 then
     echo "Either $PROFILES_DIR or $TOOL_PATH is missing"
-    exit 255
+    exit 0
 fi
 
 for DISPLAY_INDEX in $(ls "${PROFILES_DIR}" | egrep -v '^\.'); do
