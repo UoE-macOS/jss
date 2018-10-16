@@ -19,7 +19,12 @@
 # for all users simply by copying the profile to the correct folder
 # and ensuring it's the only file in this folder.
 #
-# This script would typically be run at login using a LaunchAgent.
+# This script expects to be run at login as a jamf login script. 
+# 
+# Arguments should be provided as: 
+# $3 Username of logging-in user
+# $4 Path to directory containing the profiles to be applied
+# $5 Path to the 'customdisplayprofiles' tool
 #
 # Sample folder hierarchy:
 #
@@ -30,8 +35,8 @@
 #     └── Custom Profile 2.icc
 
 
-PROFILES_DIR=/Users/Shared/CustomDisplayProfiles
-TOOL_PATH=/usr/local/bin/customdisplayprofiles
+PROFILES_DIR=$4
+TOOL_PATH=$5
 
 if [ ! -d $PROFILES_DIR ] || [ ! -x $TOOL_PATH ]
 then
