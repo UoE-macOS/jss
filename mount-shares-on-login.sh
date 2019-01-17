@@ -32,9 +32,11 @@ do
         write_log "Attempting to mount ${url}"
 
         sudo -u ${username} /usr/bin/osascript > /dev/null << EOT
-        tell application "Finder"    
-            mount volume "${url}"
-        end tell
+        with timeout of 10 seconds
+            tell application "Finder"    
+                mount volume "${url}"
+            end tell
+        end timeout
 EOT
     fi
 done
