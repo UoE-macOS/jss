@@ -1,9 +1,4 @@
 #!/usr/bin/python
-import sys
-import plistlib
-import os
-import subprocess
-
 # This script will set up (or remove) a launchagent to ensure that `app` runs over
 # the loginwindow.
 # 
@@ -30,9 +25,10 @@ import subprocess
 # Version: @@VERSION
 # Origin: @@ORIGIN
 # Released by JSS User: @@USER
-
-
-
+import sys
+import plistlib
+import os
+import subprocess
 
 def parse_args():
     """ Parse arguments and return a dict containing them """
@@ -113,6 +109,7 @@ def create_script(path, app, timeout):
     script = """#!/usr/bin/env python
 >>>import os
 >>>import time
+>>>import subprocess
 >>>def get_idle_time():
     >>>\"\"\"Get number of seconds since last user input\"\"\"
     >>>cmd = "ioreg -c IOHIDSystem | perl -ane 'if (/Idle/) {{$idle=(pop @F)/1000000000; print $idle}}'"
