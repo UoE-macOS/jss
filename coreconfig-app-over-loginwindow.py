@@ -90,7 +90,7 @@ def load_launchagent(agent_id):
         print("Couldn't load agent - perhaps we are not currently at loginwindow")
 
 def unload_launchagent(agent_id):
-    print("Unoading agent")
+    print("Unloading agent")
     try:
         subprocess.check_call(['launchctl', 'unload', '-F', 
                            '-w', '-S', 'LoginWindow', os.path.join('/Library/LaunchAgents/', 
@@ -137,6 +137,7 @@ if __name__ == "__main__":
     if ARGS['action'] == 'ENABLE':
         create_launchagent(ARGS['id'], ARGS['script_path'])
         create_script(ARGS['script_path'], ARGS['app'], ARGS['timeout'])
+        unload_launchagent(ARGS['id'])
         load_launchagent(ARGS['id'])
     elif ARGS['action'] == 'DISABLE':
         unload_launchagent(ARGS['id'])
