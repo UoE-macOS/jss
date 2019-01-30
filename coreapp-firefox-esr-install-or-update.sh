@@ -8,16 +8,17 @@
 # install it.
 #
 #
-# Date: "Tue 26 Sep 2017 13:59:43 BST"
-# Version: 0.1.1
+# Date: "Fri  9 Nov 2018 15:59:35 GMT"
+# Version: 0.1.3
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: dsavage
+# Released by JSS User: ganders1
 #
 ##################################################################
 
 # We may want to version lock Firefox ESR or can let it upgrade from vendor derived info.
-if [ -z "$4"] || [ "$4" == '' ]; then
-  available_version="$(curl https://www.mozilla.org/en-US/firefox/organizations/all/ | grep "data-esr-versions=" | awk -F '"' '{print $10}')"
+if [ -z "$4" ]; then
+  #available_version="$(curl https://www.mozilla.org/en-US/firefox/organizations/all/ | grep "data-esr-versions=" | awk -F '"' '{print $10}')"
+  available_version="$(curl https://www.mozilla.org/en-US/firefox/organizations/all/ | grep "data-esr-versions=" | awk -F 'data-esr-versions="' '{print $2}' | cut -d'"' -f1)"
 else
   available_version="$4"
 fi
@@ -78,3 +79,4 @@ case "${installed_version}" in
 esac
 
 exit 0;
+

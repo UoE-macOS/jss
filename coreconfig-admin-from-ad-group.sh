@@ -62,6 +62,7 @@ EOF
 
 if [ "$Auth_User" == "False" ];
 then
+	echo "No KRB5 ticket for user $User_Name"
 	exit 255; # No Kerberos ticket.
 fi
 
@@ -72,14 +73,27 @@ UUN=`echo $Auth_User | tr @ " " | awk '{print $1}'`
 Who_is_Admin=`dscl . -read /Groups/admin | grep GroupMembership`
 
 Domain_Controller="$(Random_Domain_Controller)"
-
+AD_Unavailable=0
 # Until we can ping a domain controller
 until ping -c 1 ${Domain_Controller}.ed.ac.uk | grep -q '1 packets received'
 do
-echo no response to ping, server $Domain_Controller down
+echo "No response to ping, server $Domain_Controller down or no network."
 
 Domain_Controller="$(Random_Domain_Controller)"
+
+AD_Unavailable=$(($AD_Unavailable+1))
+if [ "$AD_Unavailable" -gt 3 ]; then
+	Domain_Controller="AD_Failed_To_Respond"
+    echo "Breaking loop and failing out as we cannot reach a DC"
+	exit 256
+    #break  # Skip entire rest of loop.
+fi
+
 done
+
+#if [ "$Domain_Controller" == "AD_Failed_To_Respond" ]; then
+#	exit 256
+#fi
 
 echo "$Domain_Controller responded to ping, using for AD rights..."
 
