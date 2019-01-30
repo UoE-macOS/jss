@@ -11,6 +11,22 @@ import subprocess
 # $4: ENABLE | DISABLE | DELETE
 # $5: Path to application
 # $6: LaunchAgent identifier
+# $7: Timeout (in seconds)
+# $8: (optional) path to the script which will launch `app`
+#
+# This script will create (or remove) a LaunchAgent and a launcher script. The Agent specifies
+# a SessionType of 'LoginWindow' which ensures that it is only loaded when the machine
+# is sitting at the loginwindow. The Agent loads a launcher script, which handles
+# checking the idle time and launches `app` if the threshold exceeded in $7 has been 
+# exceeded.
+#
+# NB only certain apps can run over loginwindow - it is your responsibility to check
+# that the app you are launching works corrrectly 
+#
+# NBB apps launched over the loginwindw run as root, so there are security implications to 
+# doing this with an app you don't fully control.
+
+
 
 def parse_args():
     """ Parse arguments and return a dict containing them """
@@ -19,7 +35,8 @@ def parse_args():
     args['action'] = sys.argv[4]
     args['app'] = sys.argv[5]
     args['id'] = sys.argv[6]
-    args['script_path'] = sys.argv[7]
+    args['timeout'] = sys.argv[7]
+    args['script_path'] = sys.argv[8]
 
     if args['action'] not in ['ENABLE', 'DISABLE', 'DELETE']:
         print('$4 must be ENABLE, DISABLE or DELETE')
@@ -116,7 +133,7 @@ if __name__ == "__main__":
     print(ARGS)
     if ARGS['action'] == 'ENABLE':
         create_launchagent(ARGS['id'], ARGS['script_path'])
-        create_script(ARGS['script_path'], ARGS['app'], 60)
+        create_script(ARGS['script_path'], ARGS['app'], ARGS['timeout'])
         load_launchagent(ARGS['id'])
     elif ARGS['action'] == 'DISABLE':
         unload_launchagent(ARGS['id'])
