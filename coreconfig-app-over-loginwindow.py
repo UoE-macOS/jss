@@ -25,6 +25,12 @@ import subprocess
 #
 # NBB apps launched over the loginwindw run as root, so there are security implications to 
 # doing this with an app you don't fully control.
+#
+# Date: @@DATE
+# Version: @@VERSION
+# Origin: @@ORIGIN
+# Released by JSS User: @@USER
+
 
 
 
