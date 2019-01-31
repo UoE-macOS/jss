@@ -30,6 +30,7 @@
 ##################################################################
 
 import os
+import platform
 import sys
 import subprocess
 import plistlib
@@ -57,7 +58,13 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
                       'softwareupdate_notify_agent',
                       'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
-SWUPDATE_ICON = "/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
+macOS_vers, _, _ = platform.mac_ver()
+macOS_vers = float('.'.join(macOS_vers.split('.')[:2]))
+if (macOS_vers == "10.13"):
+    SWUPDATE_ICON = '/System/Library/CoreServices/Install Command Line Developer Tools.app/Contents/Resources/SoftwareUpdate.icns'
+if (macOS_vers == "10.14"):
+    SWUPDATE_ICON = '/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns'
 
 def get_args():
     try:
@@ -80,8 +87,8 @@ def process_updates(args):
     need_restart = []
     try:
         sync_update_list()
-        
-        if not recommended_updates():
+
+        if (recommended_updates() is None) or len(recommended_updates()) == 0:
             print "No Updates"
             remove_deferral_tracking_file()
             return True
@@ -101,9 +108,9 @@ def process_updates(args):
                     # to the list
 		    need_restart.append(update)
 
-        if len(need_restart) == 0:
-            # No updates require a restart, and we are done.
-            return True
+            if len(need_restart) == 0:
+		# No updates require a restart, and we are done.
+                return True
 
         # Now we can deal with updates that require a restart
         if console_user():
@@ -186,7 +193,7 @@ def unattended_install(min_battery):
     # Do a bunch of safety checks and if all is OK,
     # try to install updates unattended
     # Safety checks here?
-    if (using_ac_power() and min_battery_level(min_battery)):  
+    if (using_ac_power() or min_battery_level(min_battery)):  
         lock_out_loginwindow()
         install_recommended_updates()
         # We should make this authenticated...
@@ -256,9 +263,9 @@ def prep_index_for_logout_install():
 
     plistlib.writePlist(swindex, INDEX)
 
-    
-def force_update_on_next_logout():
-    prep_index_for_logout_install()
+# Doesn't work on 10.14...  
+#def force_update_on_next_logout():
+#    prep_index_for_logout_install()
 
     print "Setting updates to run on logout"
 
@@ -301,68 +308,33 @@ def deferral_ok_until(limit):
         return defer_date
 
 def user_wants_to_defer(defer_until, updates):
-   """ Pop a dialog asking the user if they would
-   like to defer a restart. Returns True for 'Defer'
-   and False for 'Restart Now'
-   """
-   
-   message = ("One or more software updates require a restart:\n\n{}\n\n"
-              "Updates must be applied regularly.\n\n"
-              "You will be required to restart after:\n\n  {}.").format(updates,
-                                                                        defer_until.strftime( "%a, %d %b %H:%M:%S")) 
-
-   script = """Tell application "System Events"
-                  activate
-                  with timeout of (60 * 60 * 24 * 365) seconds -- 1 Year!
-                      display dialog "{}" buttons {{"Restart Now", "Restart Later"}} ¬
-                      with title "MacOS Supported Desktop" ¬
-                      with icon file (posix file "{}")
-                  end timeout
-                  End tell""".format(message, SWUPDATE_ICON)
-   
-   proc = subprocess.Popen(['sudo', '-u', console_user(), 'osascript', '-'],
-                           stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
-   
-   answer, err = proc.communicate(script)
-   
-   if answer == "button returned:Restart Now\n":
-       print "User permitted immediate update"
-       return False
-   else:
-       print "User elected to defer update"
-       return True
-
+    answer = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Software Update Available',
+                              '-icon', SWUPDATE_ICON,
+                              '-timeout', '99999',
+                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s." % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
+                              '-button1', 'Restart now',
+                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if answer == 2: # 0 = now, 2 = defer
+        print "User elected to defer update"
+        return True
+    else:
+        print "User permitted immediate update"
+        return False
+        
 def force_logout(updates):
-   """ Pop a dialog telling the user that they
-       must restart immediately.
-   """
-   
-   message = ("One or more updates which require a restart have been deferred "
-              "for the maximum allowable time:\n\n{}\n\n"
-              "A restart is now mandatory.\n\n"
-              "Please save your work and restart now to install the update").format(updates)
-                                                                        
-   script = """Tell application "System Events"
-                  activate
-                  with timeout of (60 * 60 * 24 * 365) seconds -- 1 Year!
-                      display dialog "{}" buttons {{"Restart Now"}} ¬
-                      default button 1 ¬
-                      with title "MacOS Supported Desktop" ¬
-                      with icon file posix file ("{}")
-                  end timeout
-                  End tell""".format(message, SWUPDATE_ICON)
-   
-   proc = subprocess.Popen(['sudo', '-u', console_user(), 'osascript', '-'],
-                           stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
+    answer = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Mandatory Restart Required',
+                              '-icon', SWUPDATE_ICON,
+                              '-timeout', '99999',
+                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
+                              '-button1', 'Restart now' ])
+    friendly_logout()
 
-   proc.communicate(script)
-   
-   # Doesn't matter what the user says! 
-   friendly_logout()
 def remove_deferral_tracking_file():
     if os.path.exists(DEFER_FILE):
         os.remove(DEFER_FILE)
@@ -386,6 +358,7 @@ def nobody_logged_in():
 def friendly_logout():
     user = console_user()
     subprocess.call([ 'sudo', '-u', user, 'osascript', '-e', u'tell application "loginwindow" to  «event aevtrlgo»' ])
+    cmd_with_timeout([ SWUPDATE, '-i', '-r', '-R' ], 3600)
     
                  
 def install_recommended_updates():
@@ -420,12 +393,8 @@ def recommended_updates():
     """ Return a dict of pending recommended updates """
     updates = CFPreferencesCopyAppValue('RecommendedUpdates',
                                         '/Library/Preferences/com.apple.SoftwareUpdate')
-    
-    # If there are no updates, explicitly return None
-    if updates and len(updates) > 0:
+    if len(updates) > 0:
         return updates
-    else:
-        return None
 
 
 def is_downloaded(update):
@@ -445,7 +414,6 @@ def is_recommended(update):
 
 def requires_restart(update):
     """ Returns True if the update requires a restart 
-
         Pass in an update dict
     """
     # We look inside the .dist file in the update package to
@@ -502,4 +470,3 @@ def download_update(update):
 if __name__ == "__main__":
     args = get_args()
     process_updates(args)
-
