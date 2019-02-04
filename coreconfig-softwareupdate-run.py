@@ -116,7 +116,7 @@ def process_updates(args):
         if console_user():
             # Someone is logged in. Set updates to install on
             # Next logout:
-            force_update_on_next_logout()
+            #force_update_on_next_logout()
 
             # Are we allowed to defer logout?
             max_defer_date = deferral_ok_until(args['DEFER_LIMIT'])
