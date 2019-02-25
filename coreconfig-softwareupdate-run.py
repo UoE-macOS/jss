@@ -375,8 +375,9 @@ def apply_updates_laptop():
                               '-heading', 'Required Updates Applying',
                               '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
-                              '-description', "One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install."])
+                              '-description', "One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install.", '&'])
     install_recommended_updates()
+    subprocess.check_call(['killall', JAMFHELPER])
     friendly_reboot()
 
 def retry_logout():
