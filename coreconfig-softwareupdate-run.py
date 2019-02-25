@@ -170,8 +170,11 @@ def process_updates(args,sw_update_icon):
                     # User doesn't want to defer, so set
                     # things up to install update, and force
                     # logout.
-                    logger.info('Preforming "friendly" logout.')
-                    friendly_logout()
+                    if is_a_laptop():
+                        apply_updates_laptop()
+                    else:
+                        logger.info('Preforming "friendly" logout.')
+                        friendly_logout()
                 else:
                     logger.info("%s has chosen to defer" % console_user)
                     # User wants to defer, and is allowed to defer.
@@ -180,8 +183,11 @@ def process_updates(args,sw_update_icon):
             else:
                 # User is not allowed to defer any longer
                 # so require a logout
-                logger.warn("%s is not allowed to defer any longer." % console_user)
-                force_logout("\n".join([u.get("Display Name") for u in need_restart]))
+                if is_a_laptop():
+                    apply_updates_laptop()
+                else:
+                    logger.warn("%s is not allowed to defer any longer." % console_user)
+                    force_logout("\n".join([u.get("Display Name") for u in need_restart]))
 
         elif ( nobody_logged_in() and
                is_quiet_hours(args['QUIET_HOURS_START'],
@@ -232,16 +238,19 @@ def is_quiet_hours(start, end):
         # Quiet hours run over midnight
         return (start <= now_hour) or (now_hour < end)
 
-
 def unattended_install(min_battery):
     # Do a bunch of safety checks and if all is OK,
     # try to install updates unattended
     # Safety checks here?
     if (using_ac_power() or min_battery_level(min_battery)):
-        lock_out_loginwindow()
-        install_recommended_updates()
-        # We should make this authenticated...
-        unauthenticated_reboot()
+        if not is_a_laptop():
+            # We won't have any network access at the loginwindow so not much point attempting this on a laptop
+            lock_out_loginwindow()
+            install_recommended_updates()
+            # We should make this authenticated...
+            unauthenticated_reboot()
+        else:
+            logger.info("Model type MacBook, unattended install won't complete.")
     else:
         logger.warn("Power conditions were unacceptable for unattended installation.")
 
@@ -249,6 +258,11 @@ def unauthenticated_reboot():
     # Will bring us back to firmware login screen
     # if filevault is enabled.
     subprocess.check_call(['/sbin/reboot'])
+
+def friendly_reboot():
+    user = console_user()
+    logger.info("Attempting logout.")
+    subprocess.call([ 'sudo', '-u', user, 'osascript', '-e', u'tell application "loginwindow" to  «event aevtrrst»' ])
 
 def create_lgwindow_launchagent():
     # Create a LaunchAgent to lock out the loginwindow
@@ -289,6 +303,7 @@ def lock_out_loginwindow():
             time.sleep(1)
             helper_tries += 1
             logger.info("waiting for agent, attempts : %d" % helper_tries)
+
 
 def sync_update_list():
     logger.info("Checking for updates")
@@ -352,6 +367,17 @@ def force_logout(updates):
                               '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
                               '-button1', 'Restart now' ])
     friendly_logout()
+
+def apply_updates_laptop():
+    answer = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Required Updates Applying',
+                              '-icon', SWUPDATE_ICON,
+                              '-timeout', '99999',
+                              '-description', "One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install."])
+    install_recommended_updates()
+    friendly_reboot()
 
 def retry_logout():
     answer = subprocess.call([ JAMFHELPER,
