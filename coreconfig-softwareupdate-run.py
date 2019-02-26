@@ -347,9 +347,9 @@ def user_wants_to_defer(defer_until, updates, sw_update_icon):
                               '-heading', 'Software Update Available',
                               '-icon', sw_update_icon,
                               '-timeout', '99999',
-                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s.\n" % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
-                              '-button1', 'Restart now',
-                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates after:\n%s.\n" % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
+                              '-button1', 'Apply now',
+                               '-button2', 'Apply later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if answer == 2: # 0 = now, 2 = defer
         logger.info("User elected to defer update")
         return True
@@ -364,8 +364,8 @@ def force_logout(updates):
                               '-heading', 'Mandatory Restart Required',
                               '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
-                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
-                              '-button1', 'Restart now' ])
+                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and click apply now to install the update." % updates,
+                              '-button1', 'Apply now' ])
     friendly_logout()
 
 def apply_updates_laptop():
@@ -387,8 +387,8 @@ def retry_logout():
                               '-heading', 'Failed to logout!',
                               '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
-                              '-description', "Logout does not appear to have been successful.\n\nPlease save your work and restart now to install the update.",
-                              '-button1', 'Restart now' ])
+                              '-description', "Logout does not appear to have been successful.\n\nPlease save your work and click apply now to install the update.",
+                              '-button1', 'Apply now' ])
     friendly_logout()
 
 def remove_deferral_tracking_file():
