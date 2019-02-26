@@ -369,7 +369,7 @@ def force_logout(updates):
     friendly_logout()
 
 def apply_updates_laptop():
-    answer = subprocess.call([ JAMFHELPER,
+    answer = subprocess.Popen([ JAMFHELPER,
                               '-windowType', 'utility',
                               '-title', 'UoE Mac Supported Desktop',
                               '-heading', 'Required Updates Applying',
