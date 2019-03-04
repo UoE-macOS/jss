@@ -1,0 +1,100 @@
+#!/bin/bash
+
+####################################################################################################################################
+# 
+# Generic script for use in Notification policies adapted from one created by user mm2270 at 
+# https://www.jamf.com/jamf-nation/discussions/26957/sending-notifications-with-yo-scheduler-jamf
+#
+# The script leverages the 'Yo.app' application at /Library/MacSD/Scripts to send customised notifications to the scoped managed 
+# Macs at the frequency designated in the policy. It does so by locally generating an on-the-fly script that is passed to the Yo app
+# to be run as the logged-in user.
+# 
+# See https://github.com/sheagcraig/yo for full details on 'Yo' and its script arguments etc.
+#
+# Date: Mon  4 Mar 2019 09:19:13 GMT
+# Version: 0.4
+# Author: ganders1
+#
+####################################################################################################################################
+
+## Script parameters
+Title="$4"            ## Title for Yo notification (Required) - Maximum 37 characters.
+Msg="$5"              ## Message for Yo notification (Required) - Maximum 37 characters.
+Btn="$6"              ## Custom button name (Optional, but button name should be set if using a button action),
+BtnAct="$7"           ## Action for button (Optional) - e.g. full URL or path to app to open.
+
+## Path to the script to run
+scriptRunDir="/private/var/scripts/"
+
+## Create the directory to house the script if not present
+if [ ! -d "$scriptRunDir" ]; then
+    mkdir -p "$scriptRunDir"
+fi
+
+## Path to Yo.app or custom version of the tool. Must include path to the executable
+Yoapp="/Library/MacSD/Scripts/Yo.app/Contents/MacOS/Yo"
+
+## Check to make sure the app is where it should be or we can't do much
+if [ ! -e "$Yoapp" ]; then
+    echo "Yo application could not be found in the expected location. Must exit."
+    exit 1
+fi
+
+## Check to make sure a title and message string were passed to the script
+if [[ -z "$Title" ]] || [[ -z "$Msg" ]]; then
+    echo "Either the Title or Message strings have been left blank. Please enter a value for Title in \$4 and a message value in \$5 and try again."
+    exit 1
+fi
+
+## Get Logged in User name
+loggedInUser=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
+
+## Get Logged in User UID
+loggedInUID=$(id -u "$loggedInUser")
+
+## Make sure someone is logged in or no message display is possible
+if [[ "$loggedInUser" == "root" ]] && [[ "$loggedInUID" == 0 ]]; then
+    echo "No user is logged in. Skipping display of notification until next run."
+    exit 0
+fi
+
+## This function runs the temp script as the logged in user
+function runScriptAsUser ()
+{
+
+/bin/launchctl asuser "$loggedInUID" sudo -iu "$loggedInUser" "/private/var/scripts/Yo_run.sh"
+
+}
+
+## This function creates a temp script to run Yo with the parameters and text strings passed to the main script
+function createScript ()
+{
+
+cat << EOD > /private/var/scripts/Yo_run.sh
+#!/bin/bash
+
+$(echo "${contents}")
+
+EOD
+
+/bin/chmod +x /private/var/scripts/Yo_run.sh
+
+runScriptAsUser
+
+}
+
+
+## Create the script contents based on if a button string was passed and/or a button action was also passed
+if [[ ! -z "$Btn" ]] && [[ ! -z "$BtnAct" ]]; then
+    echo "Creating notice with button + action"
+    contents="\"${Yoapp}\" -t \"${Title}\" -n \"${Msg}\" -b \"${Btn}\" -a \"${BtnAct}\" -z \"None\" -p"
+    createScript
+elif [[ ! -z "$Btn" ]] && [[ -z "$BtnAct" ]]; then
+    echo "Creating notice with button only"
+    contents="\"${Yoapp}\" -t \"${Title}\" -n \"${Msg}\" -b \"${Btn}\" -z \"None\" -p"
+    createScript
+elif [[ -z "$Btn" ]]; then
+    echo "Creating notice with no custom button"
+    contents="\"${Yoapp}\" -t \"${Title}\" -n \"${Msg}\" -z \"None\" -p"
+    createScript
+fi
