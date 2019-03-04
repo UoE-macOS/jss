@@ -75,13 +75,6 @@ do
     # Don't bother trying to mount the host if it's unavailable
     if echo ${url} | egrep -q '(afp|smb|nfs)://'
     then 
-        host=$(echo $url | awk -F/ '{print $3}')
-        if ! ping -c1 -t1 ${host} &> /dev/null 
-        then
-            write_log "$host doesn't appear to be up. Skipping"
-            continue
-        fi
-
         write_log "Attempting to mount ${url}"
         # `MyProcessIdentifier-${my_id}` is a dummy argument which is used by the run_with_timeout() function
         # to find the process and kill it if it times out. 
