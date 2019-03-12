@@ -34,6 +34,22 @@ install_flash() {
   hdiutil detach "${tmp_mount}" && /bin/rm -rf "${tmp_mount}"
 }
 
+configure_flash() {
+# Create mms.cfg file that sets the Flash Player preferences never to check for updates, since we use this script to.
+# The /Library/Application\ Support/Macromedia folder it gets created in should already exist as this step is after the Flash install.
+
+echo "****** Setting Flash Player to never check for updates ******"
+
+cat <<EOF > /Library/Application\ Support/Macromedia/mms.cfg
+AutoUpdateDisable=1
+SilentAutoUpdateEnable=0
+EOF
+
+# Set file permissions
+chown -R root:admin /Library/Application\ Support/Macromedia/mms.cfg  
+}
+
+
 ## URL pointing to a direct download of the Flash Player disk image
 DOWNLOAD_URL=`curl http://get.adobe.com/flashplayer/webservices/json/ | python -m json.tool | grep osx.dmg | awk -F '"' '{sub(/^http:/, "https:", $4); print $4}'`
 
@@ -54,5 +70,14 @@ case "${installed_version}" in
     install_flash
     ;;
 esac
+
+# Apply the Flash preferences config.
+
+if [ -d /Library/Application\ Support/Macromedia ]; then
+	configure_flash
+else
+	mkdir /Library/Application\ Support/Macromedia
+    configure_flash
+fi
 
 exit 0;
