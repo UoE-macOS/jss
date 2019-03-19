@@ -45,6 +45,8 @@ then
 fi
 
 for DISPLAY_INDEX in $(ls "${PROFILES_DIR}" | egrep -v '^\.'); do
+    chmod go+r "$PROFILES_DIR/$DISPLAY_INDEX"/*
     echo "Setting profile for display $DISPLAY_INDEX..."
     sudo -u $3 $TOOL_PATH set --display $DISPLAY_INDEX "$PROFILES_DIR/$DISPLAY_INDEX"/*
 done
+
