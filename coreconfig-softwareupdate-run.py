@@ -38,6 +38,7 @@ import datetime
 import thread
 import time
 import logging
+import signal
 from threading import Timer
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 from xml.etree import ElementTree
@@ -88,6 +89,8 @@ SWUPDATE_PROCESSES = ['softwareupdated', 'swhelperd',
                       'softwareupdate_download_service']
 HELPER_AGENT = '/Library/LaunchAgents/uk.ac.ed.mdp.jamfhelper-swupdate.plist'
 #SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
+UNI_LOGO = '/usr/local/jamf/UoELogo.png'
+CAUTION_ICON = '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns'
 
 def get_args():
     logger.info("Grabbing arguments from JSS.")
@@ -115,11 +118,28 @@ def check_for_icon(path_to_icon):
     else:
         logger.warn("Unable to find icon at %s" % path_to_icon)
 
+def kill_jh():
+    # Get all jamfhelper PIDs. By default check_output returns "\n" at the end of it's line, so we want to strip the new line so it's not included in the output.
+    # By default, check_output also returns an exception if there is a problem, so using a try
+    try:
+        jh_process = subprocess.check_output(['pgrep','jamfHelper']).strip()
+    # If Jamf Helper is not running then break from the function
+    except:
+        logger.info("No Jamf Helper process is running")
+        return
+    # For each jamf helper process
+    for proc in jh_process.splitlines():
+        # As it's a string, convert it to integer
+        jh_pid = int(proc)
+        logger.info("Killing jamfHelper process ID : %d" % jh_pid)
+        # Kill the process
+        os.kill(jh_pid, signal.SIGTERM)
 
 def process_updates(args,sw_update_icon):
     # Don't run if the quickadd package is still doing its stuff
     if os.path.exists(QUICKADD_LOCK):
         logger.error("QuickAdd package appears to be running - will exit")
+        close_logger()
         sys.exit(0)
 
     need_restart = []
@@ -133,8 +153,6 @@ def process_updates(args,sw_update_icon):
 
         for update in recommended_updates():
             logger.info("Processing {}".format(update.get("Display Name")))
-            #print("Processing {}".format(update.get("Display Name")))
-
             # Download only if required
             if not is_downloaded(update):
                 logger.info("Downloading %s" % update)
@@ -176,7 +194,7 @@ def process_updates(args,sw_update_icon):
                         logger.info('Preforming "friendly" logout.')
                         friendly_logout()
                 else:
-                    logger.info("%s has chosen to defer" % console_user)
+                    logger.info("%s has chosen to defer" % console_user())
                     # User wants to defer, and is allowed to defer.
                     # OK, just bail
                     return True
@@ -186,7 +204,7 @@ def process_updates(args,sw_update_icon):
                 if is_a_laptop():
                     apply_updates_laptop()
                 else:
-                    logger.warn("%s is not allowed to defer any longer." % console_user)
+                    logger.warn("%s is not allowed to defer any longer." % console_user())
                     force_logout("\n".join([u.get("Display Name") for u in need_restart]))
 
         elif ( nobody_logged_in() and
@@ -203,6 +221,7 @@ def process_updates(args,sw_update_icon):
         # If any of the softwareupdate commands times out
         # we receive a KeyboardInterrupt
         logger.error("Command timed out: giving up!")
+        close_logger()
         sys.exit(255)
 
 
@@ -259,10 +278,7 @@ def unauthenticated_reboot():
     # if filevault is enabled.
     subprocess.check_call(['/sbin/reboot'])
 
-def friendly_reboot():
-    user = console_user()
-    logger.info("Attempting logout.")
-    subprocess.call([ 'sudo', '-u', user, 'osascript', '-e', u'tell application "loginwindow" to  «event aevtrrst»' ])
+
 
 def create_lgwindow_launchagent():
     # Create a LaunchAgent to lock out the loginwindow
@@ -347,9 +363,9 @@ def user_wants_to_defer(defer_until, updates, sw_update_icon):
                               '-heading', 'Software Update Available',
                               '-icon', sw_update_icon,
                               '-timeout', '99999',
-                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates after:\n%s.\n" % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
-                              '-button1', 'Apply now',
-                               '-button2', 'Apply later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                              '-description', "One or more software updates require a restart:\n\n%s\n\nUpdates must be applied regularly.\n\nYou will be required to restart after:\n%s.\n" % (updates, defer_until.strftime( "%a, %d %b %H:%M:%S")),
+                              '-button1', 'Restart now',
+                               '-button2', 'Restart later' ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if answer == 2: # 0 = now, 2 = defer
         logger.info("User elected to defer update")
         return True
@@ -364,8 +380,8 @@ def force_logout(updates):
                               '-heading', 'Mandatory Restart Required',
                               '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
-                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and click apply now to install the update." % updates,
-                              '-button1', 'Apply now' ])
+                              '-description', "One or more updates which require a restart have been deferred for the maximum allowable time:\n\n%s\n\nA restart is now mandatory.\n\nPlease save your work and restart now to install the update." % updates,
+                              '-button1', 'Restart now' ])
     friendly_logout()
 
 def apply_updates_laptop():
@@ -377,7 +393,8 @@ def apply_updates_laptop():
                               '-timeout', '99999',
                               '-description', "One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install.", '&'])
     install_recommended_updates()
-    subprocess.check_call(['killall', JAMFHELPER])
+    # Kill all instances of jamf helper
+    kill_jh()
     friendly_reboot()
 
 def retry_logout():
@@ -387,8 +404,8 @@ def retry_logout():
                               '-heading', 'Failed to logout!',
                               '-icon', SWUPDATE_ICON,
                               '-timeout', '99999',
-                              '-description', "Logout does not appear to have been successful.\n\nPlease save your work and click apply now to install the update.",
-                              '-button1', 'Apply now' ])
+                              '-description', "Logout does not appear to have been successful.\n\nPlease save your work and restart now to install the update.",
+                              '-button1', 'Restart now' ])
     friendly_logout()
 
 def remove_deferral_tracking_file():
@@ -426,6 +443,82 @@ def friendly_logout():
     # If after 15 attempts it's still unsuccessful, retry the logout
     logger.warn("Still not logged out. Attempting again.")
     retry_logout()
+
+def friendly_reboot():
+
+    logger.info("Attempting friendly restart.")
+    # Display initial message with university logo. This will not only reassure the user that this is an intended process, but will also help the logged in user prepare to save their data.
+    jh_window1 = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Update Notification',
+                              '-icon', UNI_LOGO,
+                              '-timeout', '99999',
+                              '-description', "In order to install the latest security updates, it is essential that your macOS device is restarted.\n\nPlease make sure you have saved your data before proceeding.\n\nTHIS PROCESS CANNOT BE DEFERRED!",
+                              '-button1', 'Continue' ])
+
+    # Set reboot attempts. At the moment this will loop at least 100 times if the user attempts to quit jamf helper
+    reboot_tries = 1
+    while reboot_tries < 100:
+        logger.info("Reboot attempts : %d" % reboot_tries)
+        # Display 2nd message, warning user to save their data.
+        jh_window2 = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Update Notification',
+                              '-icon', CAUTION_ICON,
+                              '-timeout', '99999',
+                              '-description', "This mac will now attempt to close all applications and restart.\n\nBefore selecting \"Restart now\", please make sure that you have saved all of your data!",
+                              '-button1', 'Restart now' ])
+        # If restart now is selected
+        if (jh_window2 == 0):
+            # Get list of open applications
+            apps = subprocess.check_output(['osascript', '-e', 'tell app "System Events" to get name of (processes where background only is false)']).strip()
+            # If there are no apps open
+            if (not apps):
+                # Restart
+                logger.info("No applications appear to be opened. Restarting.")
+                subprocess.call(['osascript', '-e', 'tell app "System Events" to restart'])
+                # Close logger
+                close_logger()
+                # Exit script
+                sys.exit(0)
+            # Else, it looks like there are apps open. Display message listing open apps.
+            else:
+                jh_window3 = subprocess.call([ JAMFHELPER,
+                              '-windowType', 'utility',
+                              '-title', 'UoE Mac Supported Desktop',
+                              '-heading', 'Applications open',
+                              '-icon', CAUTION_ICON,
+                              '-timeout', '99999',
+                              '-description', "Before the mac can be restarted, the following applications need to be closed:\n\n%s\nDo you wish to force quit these applications?\n\nANY UNSAVED DATA WILL BE LOST!" % apps,
+                              '-button1', 'Close all' ])
+                # If user wishes to close all open apps then attempt to close
+                if (jh_window3 == 0):
+                    apple_script_cmd = '''
+                        tell application "System Events"
+                            set listOfProcesses to (name of every process where background only is false)
+                        end tell
+                        repeat with processName in listOfProcesses
+                            do shell script "Killall " & quoted form of processName
+                        end repeat'''
+                    # Run the apple script command
+                    proc = subprocess.Popen(['osascript', '-'],
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE)
+                    stdout_output = proc.communicate(apple_script_cmd)[0]
+                    print stdout_output
+                else:
+                    # User has most likely attempted to quit jamf helper. Go to next iteration of loop and start again
+                    continue
+            # All apps should now be closed. Restarting
+            logger.info("Restarting!")
+            subprocess.call(['osascript', '-e', 'tell app "System Events" to restart'])
+            # Close logger
+            close_logger()
+            # Exit script
+            sys.exit(0)
+        reboot_tries += 1
 
 def install_recommended_updates():
     # An hour should be sufficient to install
@@ -528,13 +621,13 @@ if __name__ == "__main__":
     # Get OS Version
     macOS_vers, _, _ = platform.mac_ver()
     macOS_vers = float('.'.join(macOS_vers.split('.')[:2]))
-    
+
     if (macOS_vers == 10.12) or (macOS_vers == 10.11) :
-    	logger.info("Running 10.12 or 10.11.")
-    	SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
+        logger.info("Running 10.12 or 10.11.")
+        SWUPDATE_ICON = '/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns'
         # Check to make sure software update logo exists
         check_for_icon(SWUPDATE_ICON)
-    
+
     if (macOS_vers == 10.13):
         logger.info("Running 10.13.")
         SWUPDATE_ICON = '/System/Library/CoreServices/Install Command Line Developer Tools.app/Contents/Resources/SoftwareUpdate.icns'
