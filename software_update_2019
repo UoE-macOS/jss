@@ -97,7 +97,7 @@ fi
 echo ${Network}
 }
 
-check_for_updatess () {
+check_for_updates () {
 echo "Checking for pending system updates..."
 updateCheck=$( $SWUPDATE --list )
 # Determine whether any critical updates are available, and if any require
