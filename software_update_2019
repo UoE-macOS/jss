@@ -231,12 +231,16 @@ rm -f ${Defer_File}
 }
 
 warn_applying_updates () {
+Warn_Message="One or more updates which require a restart are being applied.
+
+This Mac will restart momentarily to complete the install. Please wait..."
+
 "${JAMFHELPER}" -windowType utility\
 	-title "UoE Mac Supported Desktop"\
 	-heading "Required Updates Applying"\
     -icon ${Caution_Icon}\
     -timeout 99999\
-    -description "$( echo -e One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install. )" &
+    -description "${Warn_Message}" &
 }
 
 # Set some globals
