@@ -1,0 +1,234 @@
+#!/bin/bash
+
+###################################################################
+#
+# Enable macOS softwareupdates
+#
+# Date: Wed  3 Apr 2019 09:12:40
+# Version: 0.1
+# Creator: dsavage
+#
+##################################################################
+
+main() {
+Mobility=$(get_mobility)
+case $Mobility in
+	mobile)
+    Battery=$(get_battery)
+    if [ ${Battery} = "pass" ]; then
+    	echo "Battery greater than 60% proceeding."
+    else
+    	echo "Battery less than 60% cannot proceed."
+    	exit 0;
+    fi
+    ;;
+    desktop)
+    echo "Is desktop so proceeding."
+    ;;
+esac
+
+Network=$(get_network)
+if [ ${Network} = "pass" ]; then
+    check_for_update
+ 	if [ ${User} == "none" ]; then
+    	install_update
+    else
+    	check_for_deferral
+    	install_update
+    fi
+else
+   	echo "Network error cannot proceed"
+   	exit 0;
+fi
+}
+
+get_mobility() {
+Product_Name=$(ioreg -l | awk '/product-name/ { split($0, line, "\""); printf("%s\n", line[4]); }')
+	if echo "${Product_Name}" | grep -qi "macbook" 
+	then
+    	Mobility="mobile"
+  	else
+    	Mobility="desktop"
+	fi
+echo ${Mobility}
+}
+
+get_battery () {
+##Check if device is on battery or ac power
+Power_Adapter=$( /usr/bin/pmset -g ac )
+if [[ ${pwrAdapter} == "No adapter attached." ]]; then
+	Battery_Percentage=$( /usr/bin/pmset -g batt | grep "InternalBattery-0" | awk '{print $3}' | awk -F '%' '{print $1}' )
+	if [ $Battery_Percentage -le 60 ]; then
+		Power_Status="fail"
+	else
+		Power_Status="pass"
+	fi
+else
+    Power_Status="pass"
+fi
+echo ${Power_Status}
+}
+
+# Check network adapter
+get_network() {
+Active_Adapter=$( route get ed.ac.uk | grep interface | awk '{print $2}' )
+Adapter_Name=$( networksetup -listallhardwareports | grep -B1 "$Active_Adapter" | awk -F': ' '/Hardware Port/{print $NF}' )
+# Find out out link status if we are on Ethernet or Wireless, then work out if updates should happen.
+if [[ "$Adapter_Name" =~ "Ethernet" ]]; then
+    Link_Speed=$(ifconfig $Active_Adapter | awk -F': ' '/media:/{print $NF}' | awk -F '[()]' '{print $2}' | awk '{print $1}')
+	# Make sure we have a decent connection.
+	if [[ "$Link_Speed" =~ "100baseT" ]] || [[ "$Link_Speed" == "1000baseT" ]]; then
+		Network="pass"
+	else
+		Network="fail"
+	fi
+elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
+    Max_Link_Speed=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/maxRate/{print $NF}')
+	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
+	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 250 ]; then
+		echo "Unauthenticated / Public network or slow network, aborting."
+		Network="fail"
+		Link_Speed=$Max_Link_Speed
+	else
+		Network="pass"
+	fi
+else
+	Network="fail"
+fi
+echo ${Network}
+}
+
+check_for_update () {
+echo "Checking for pending system updates..."
+updateCheck=$( $SWUPDATE --list )
+# Determine whether any critical updates are available, and if any require
+# a restart. If no updates need to be installed, bail out.
+if [[ "$updateCheck" == *"[restart]"* ]]; then
+	Install_Status="all"
+elif [[ "$updateCheck" == *"[recommended]"* ]]; then
+    Install_Status="recommended"
+else
+    echo "No critical updates available."
+    clean_up
+    exit 0;
+fi
+# Download updates (all updates if a restart is required for any, otherwise
+# just recommended updates).
+echo "Pre-downloading $installWhich system updates..."
+$SWUPDATE --download --$Install_Status
+}
+
+get_user () {
+User=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
+if [ -z ${User} ] || [ ${User} == "" ]; then
+	User="none"
+fi
+echo ${User}
+}
+
+check_for_deferral () {
+Today=$( date  "+%Y/%m/%d" )
+if [ -f ${Defer_File} ]; then
+Check_Defer_Limit=$( /usr/libexec/PlistBuddy -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
+#2019-04-10T00:02:39
+Text_Defer_Limit=$( /usr/libexec/PlistBuddy -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
+#Wed Apr 10 01:02:39 GMT 2019
+fi
+Software_Update_Icon=$(get_sofwareupdate_icon)
+if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
+	# Can't defer any longer
+	Result=`"${JAMFHELPER}" -windowType utility\
+ -title "UoE Mac Supported Desktop"\
+ -heading "Software Update Available"\
+ -icon "${Software_Update_Icon}"\
+ -description "$(echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit})"\
+ -button1 "Apply now"`
+	if [ ${Result} == 0 ]; then
+    	#Install the updates
+    	install_update
+	fi
+else
+	# User can defer
+	Result=`"${JAMFHELPER}" -windowType utility\
+ -title "UoE Mac Supported Desktop"\
+ -heading "Software Update Available"\
+ -icon "${Software_Update_Icon}"\
+ -description "$(echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates and restart after: ${Text_Defer_Limit})"\
+ -button1 "Apply now"\
+ -button2 "Apply later"`
+	if [ ${Result} == 0 ]; then
+    	# Install the updates
+    	install_update
+	elif [ ${Result} == 2 ]; then
+    	# user is deferring.
+    	Defer_Limit=$( date -v +${Deferal_Limit}d "+%d/%m/%y" )
+		/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
+		clean_up
+    	exit 0;
+	fi
+fi
+}
+
+get_sofwareupdate_icon () {
+OS_Version=$( sw_vers -productVersion | awk -F '.' '{print $2}' )
+case $OS_Version in
+	[10-12])
+	Software_Update_Icon="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+	;;
+	13)
+	Software_Update_Icon="/System/Library/CoreServices/Install Command Line Developer Tools.app/Contents/Resources/SoftwareUpdate.icns"
+	;;
+	14)
+	Software_Update_Icon="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+	;;
+	*)
+	echo "Do nothing, running on the unknown or untested..."
+	exit 0;
+	;;
+esac
+echo ${Software_Update_Icon}
+}
+
+install_update () {
+if [ "${Install_Status}" == "all" ]; then
+	# A restart is required so use jamfhelper warning.
+	warn_applying_update
+fi
+clean_up
+# Install updates (all updates if a restart is required for any, otherwise
+# just recommended updates). Restart option only applies if required.
+$SWUPDATE --install --$Install_Status --restart
+}
+
+clean_up () {
+# For now just delete the deferal file.
+rm -f ${Defer_File}
+}
+
+warn_applying_update () {
+"${JAMFHELPER}" -windowType utility\
+	-title "UoE Mac Supported Desktop"\
+	-heading "Required Updates Applying"\
+    -icon ${Caution_Icon}\
+    -timeout 99999\
+    -description "$( echo -e One or more updates which require a restart are being applied.\n\nThis Mac will restart momentarily to complete the install. )" &
+}
+
+# Set some globals
+JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+if ! [ -e "${JAMFHELPER}" ]; then
+	# only for supported macs
+	exit 0;
+fi
+SWUPDATE="/usr/sbin/softwareupdate"
+Uni_Logo="/usr/local/jamf/UoELogo.png"
+Caution_Icon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns"
+User=$(get_user)
+Install_Status=""
+Defer_File="/var/db/UoESoftwareUpdateDeferral.V2"
+Deferal_Limit=3
+
+# Call the main function
+main
+
+exit 0;
