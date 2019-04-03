@@ -211,7 +211,9 @@ case $OS_Version in
 	[10-12]*)
 	$SWUPDATE --install --$Install_Status
 	sleep 1
-	shutdown -r now
+	if [ $Install_Status == "all" ]; then
+		shutdown -r now
+	fi
 	;;
 	[13-14]*)
 	$SWUPDATE --install --$Install_Status --restart
