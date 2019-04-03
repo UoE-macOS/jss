@@ -128,18 +128,19 @@ echo ${User}
 check_for_deferral () {
 Today=$( date  "+%Y/%m/%d" )
 if [ -f ${Defer_File} ]; then
-Check_Defer_Limit=$( /usr/libexec/PlistBuddy -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
-#2019-04-10T00:02:39
-Text_Defer_Limit=$( /usr/libexec/PlistBuddy -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
-#Wed Apr 10 01:02:39 GMT 2019
+	Check_Defer_Limit=$( /usr/libexec/PlistBuddy -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
+	#2019-04-10T00:02:39
+	Text_Defer_Limit=$( /usr/libexec/PlistBuddy -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
+	#Wed Apr 10 01:02:39 GMT 2019
+else
+	# Defer date will be...
+	Text_Defer_Limit=$( date | awk '{print $1 " " $2 " " $3 " " $4}' )
 fi
 Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
 	# Can't defer any longer
 	Description_Text="One or more software updates require a restart.
-
 Updates must be applied regularly.
-
 You are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit}"
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
@@ -153,9 +154,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
 	fi
 else
 	Description_Text="One or more software updates require a restart.
-
 Updates must be applied regularly.
-
 You will be required to apply updates and restart after: ${Text_Defer_Limit}"
 	# User can defer
 	Result=`"${JAMFHELPER}" -windowType utility\
@@ -171,7 +170,7 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
     	if ! [ -f ${Defer_File} ]; then
-    		Defer_Limit=$( date -v +${Deferal_Limit}d "+%d/%m/%y" )
+    		Defer_Limit=$( date -v +${Deferal_Time}d "+%d/%m/%y" )
 			/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
     		exit 0;
     	fi
@@ -207,7 +206,17 @@ fi
 clean_up
 # Install updates (all updates if a restart is required for any, otherwise
 # just recommended updates). Restart option only applies if required.
-$SWUPDATE --install --$Install_Status --restart
+OS_Version=$( sw_vers -productVersion | awk -F '.' '{print $2}' )
+case $OS_Version in
+	[10-12]*)
+	$SWUPDATE --install --$Install_Status
+	sleep 1
+	shutdown -r now
+	;;
+	[13-14]*)
+	$SWUPDATE --install --$Install_Status --restart
+	;;
+esac
 }
 
 clean_up () {
@@ -236,7 +245,7 @@ Caution_Icon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/A
 User=$(get_user)
 Install_Status=""
 Defer_File="/var/db/UoESoftwareUpdateDeferral.V2"
-Deferal_Limit=3
+Deferal_Time=3
 
 # Call the main function
 main
