@@ -113,8 +113,8 @@ else
 fi
 # Download updates (all updates if a restart is required for any, otherwise
 # just recommended updates).
-echo "Pre-downloading $installWhich system updates..."
-$SWUPDATE --download --$Install_Status
+#echo "Pre-downloading $installWhich system updates..."
+#$SWUPDATE --download --$Install_Status
 }
 
 get_user () {
@@ -136,7 +136,11 @@ fi
 Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
 	# Can't defer any longer
-	Description_Text=$( echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit} )
+	Description_Text="One or more software updates require a restart.
+
+Updates must be applied regularly.
+
+You are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit}"
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
  -heading "Software Update Available"\
@@ -148,7 +152,11 @@ if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
     	install_update
 	fi
 else
-	Description_Text=$( echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates and restart after: ${Text_Defer_Limit} )
+	Description_Text="One or more software updates require a restart.
+
+Updates must be applied regularly.
+
+You will be required to apply updates and restart after: ${Text_Defer_Limit}"
 	# User can defer
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
