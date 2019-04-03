@@ -29,9 +29,9 @@ esac
 
 Network=$(get_network)
 if [ ${Network} = "pass" ]; then
-    check_for_update
+    check_for_updates
  	if [ ${User} == "none" ]; then
-    	install_update
+    	install_updates
     else
     	check_for_deferral
     fi
@@ -97,7 +97,7 @@ fi
 echo ${Network}
 }
 
-check_for_update () {
+check_for_updatess () {
 echo "Checking for pending system updates..."
 updateCheck=$( $SWUPDATE --list )
 # Determine whether any critical updates are available, and if any require
@@ -152,7 +152,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
  -button1 "Apply now"`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
-    	install_update
+    	install_updates
 	fi
 else
 	Description_Text="One or more software updates require a restart.
@@ -170,7 +170,7 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
  -button2 "Apply later"`
 	if [ ${Result} == 0 ]; then
     	# Install the updates
-    	install_update
+    	install_updates
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
     	if ! [ -f ${Defer_File} ]; then
@@ -202,10 +202,10 @@ esac
 echo "${Software_Update_Icon}"
 }
 
-install_update () {
+install_updates () {
 if [ "${Install_Status}" == "all" ]; then
 	# A restart is required so use jamfhelper warning.
-	warn_applying_update
+	warn_applying_updates
 fi
 clean_up
 # Install updates (all updates if a restart is required for any, otherwise
@@ -230,7 +230,7 @@ clean_up () {
 rm -f ${Defer_File}
 }
 
-warn_applying_update () {
+warn_applying_updates () {
 "${JAMFHELPER}" -windowType utility\
 	-title "UoE Mac Supported Desktop"\
 	-heading "Required Updates Applying"\
@@ -251,7 +251,7 @@ Caution_Icon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/A
 User=$(get_user)
 Install_Status=""
 Defer_File="/var/db/UoESoftwareUpdateDeferral.V2"
-Deferral_Time=3
+Deferral_Time=${4}
 
 # Call the main function
 main
