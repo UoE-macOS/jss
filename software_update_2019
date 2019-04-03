@@ -34,7 +34,6 @@ if [ ${Network} = "pass" ]; then
     	install_update
     else
     	check_for_deferral
-    	install_update
     fi
 else
    	echo "Network error cannot proceed"
@@ -163,7 +162,6 @@ else
     	# user is deferring.
     	Defer_Limit=$( date -v +${Deferal_Limit}d "+%d/%m/%y" )
 		/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
-		clean_up
     	exit 0;
 	fi
 fi
