@@ -5,7 +5,7 @@
 # Enable macOS softwareupdates with deferral
 #
 # Date: Wed  3 Apr 2019 09:12:40
-# Version: 0.1
+# Version: 0.1.1
 # Creator: dsavage
 #
 ##################################################################
@@ -133,26 +133,28 @@ Check_Defer_Limit=$( /usr/libexec/PlistBuddy -x -c "Print DeferOkUntil" ${Defer_
 Text_Defer_Limit=$( /usr/libexec/PlistBuddy -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
 #Wed Apr 10 01:02:39 GMT 2019
 fi
-Software_Update_Icon=$(get_sofwareupdate_icon)
+Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
 	# Can't defer any longer
+	Description_Text=$( echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit} )
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
  -heading "Software Update Available"\
  -icon "${Software_Update_Icon}"\
- -description "$(echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit})"\
+ -description "${Description_Text}"\
  -button1 "Apply now"`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
     	install_update
 	fi
 else
+	Description_Text=$( echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates and restart after: ${Text_Defer_Limit} )
 	# User can defer
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
  -heading "Software Update Available"\
  -icon "${Software_Update_Icon}"\
- -description "$(echo -e One or more software updates require a restart:\n\n\nUpdates must be applied regularly.\n\nYou will be required to apply updates and restart after: ${Text_Defer_Limit})"\
+ -description "${Description_Text}"\
  -button1 "Apply now"\
  -button2 "Apply later"`
 	if [ ${Result} == 0 ]; then
@@ -160,17 +162,19 @@ else
     	install_update
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
-    	Defer_Limit=$( date -v +${Deferal_Limit}d "+%d/%m/%y" )
-		/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
-    	exit 0;
+    	if ! [ -f ${Defer_File} ]; then
+    		Defer_Limit=$( date -v +${Deferal_Limit}d "+%d/%m/%y" )
+			/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
+    		exit 0;
+    	fi
 	fi
 fi
 }
 
-get_sofwareupdate_icon () {
+get_softwareupdate_icon () {
 OS_Version=$( sw_vers -productVersion | awk -F '.' '{print $2}' )
 case $OS_Version in
-	[10-12])
+	[10-12]*)
 	Software_Update_Icon="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 	;;
 	13)
@@ -181,10 +185,10 @@ case $OS_Version in
 	;;
 	*)
 	echo "Do nothing, running on the unknown or untested..."
-	exit 0;
+	#exit 0;
 	;;
 esac
-echo ${Software_Update_Icon}
+echo "${Software_Update_Icon}"
 }
 
 install_update () {
