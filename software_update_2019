@@ -15,7 +15,7 @@ Mobility=$(get_mobility)
 case $Mobility in
 	mobile)
     Battery=$(get_battery)
-    if [ ${Battery} = "pass" ]; then
+    if [ ${Battery} == "pass" ]; then
     	echo "Battery greater than 60% proceeding."
     else
     	echo "Battery less than 60% cannot proceed."
@@ -28,7 +28,7 @@ case $Mobility in
 esac
 
 Network=$(get_network)
-if [ ${Network} = "pass" ]; then
+if [ ${Network} == "pass" ]; then
     check_for_updates
  	if [ ${User} == "none" ]; then
     	install_updates
@@ -55,7 +55,7 @@ echo ${Mobility}
 get_battery () {
 ##Check if device is on battery or ac power
 Power_Adapter=$( /usr/bin/pmset -g ac )
-if [[ ${pwrAdapter} == "No adapter attached." ]]; then
+if [[ ${Power_Adapter} == "No adapter attached." ]]; then
 	Battery_Percentage=$( /usr/bin/pmset -g batt | grep "InternalBattery-0" | awk '{print $3}' | awk -F '%' '{print $1}' )
 	if [ $Battery_Percentage -le 60 ]; then
 		Power_Status="fail"
