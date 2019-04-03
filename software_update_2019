@@ -134,7 +134,7 @@ if [ -f ${Defer_File} ]; then
 	#Wed Apr 10 01:02:39 GMT 2019
 else
 	# Defer date will be...
-	Text_Defer_Limit=$( date | awk '{print $1 " " $2 " " $3 " " $4}' )
+	Text_Defer_Limit=$( date -v +${Deferal_Time}d | awk '{print $1 " " $2 " " $3 " " $4}' )
 fi
 Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
