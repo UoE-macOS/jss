@@ -10,13 +10,15 @@
 #
 ##################################################################
 
+set -x
+
 main() {
 Mobility=$(get_mobility)
 case $Mobility in
 	mobile)
     Battery=$(get_battery)
     if [ ${Battery} == "pass" ]; then
-    	echo "Battery greater than 60% proceeding."
+    	echo "Battery greater than 60% proceeding or plugged in."
     else
     	echo "Battery less than 60% cannot proceed."
     	exit 0;
@@ -29,6 +31,7 @@ esac
 
 Network=$(get_network)
 if [ ${Network} == "pass" ]; then
+    echo "Not an unauthenticated, public or slow network, continuing."
     check_for_updates
  	if [ ${User} == "none" ]; then
     	install_updates
@@ -60,7 +63,11 @@ if [[ ${Power_Adapter} == "No adapter attached." ]]; then
 	if [ $Battery_Percentage -le 60 ]; then
 		Power_Status="fail"
 	else
-		Power_Status="pass"
+		if [ $Battery_Percentage -le 10 ]; then
+			Power_Status="fail"
+		else
+			Power_Status="pass"
+		fi
 	fi
 else
     Power_Status="pass"
@@ -85,7 +92,6 @@ elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
     Max_Link_Speed=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/maxRate/{print $NF}')
 	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
 	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 250 ]; then
-		echo "Unauthenticated / Public network or slow network, aborting."
 		Network="fail"
 		Link_Speed=$Max_Link_Speed
 	else
