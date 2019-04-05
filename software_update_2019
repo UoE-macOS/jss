@@ -4,8 +4,8 @@
 #
 # Enable macOS softwareupdates with deferral
 #
-# Date: Wed  3 Apr 2019 09:12:40
-# Version: 0.1.1
+# Date: Fri  5 Apr 2019 17:01:19
+# Version: 0.1.2
 # Creator: dsavage
 #
 ##################################################################
@@ -146,9 +146,8 @@ Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
 	# Can't defer any longer
 	Description_Text="One or more software updates require a restart.
-
-Updates must be applied regularly.
-
+	
+Updates must be applied regularly. Please save any unsaved work.
 You are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit}"
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
@@ -163,8 +162,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
 else
 	Description_Text="One or more software updates require a restart.
 	
-Updates must be applied regularly.
-
+Updates must be applied regularly. Please save any unsaved work.
 You will be required to apply updates and restart after: ${Text_Defer_Limit}"
 	# User can defer
 	Result=`"${JAMFHELPER}" -windowType utility\
@@ -191,7 +189,7 @@ fi
 get_softwareupdate_icon () {
 OS_Version=$( sw_vers -productVersion | awk -F '.' '{print $2}' )
 case $OS_Version in
-	[10-12]*)
+	1[012])
 	Software_Update_Icon="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 	;;
 	13)
@@ -216,19 +214,11 @@ fi
 clean_up
 # Install updates (all updates if a restart is required for any, otherwise
 # just recommended updates). Restart option only applies if required.
-OS_Version=$( sw_vers -productVersion | awk -F '.' '{print $2}' )
-case $OS_Version in
-	[10-12]*)
 	$SWUPDATE --install --$Install_Status
 	sleep 1
 	if [ $Install_Status == "all" ]; then
-		shutdown -r now
+		/usr/local/bin/jamf policy -event authenticated-restart
 	fi
-	;;
-	[13-14]*)
-	$SWUPDATE --install --$Install_Status --restart
-	;;
-esac
 }
 
 clean_up () {
@@ -238,8 +228,9 @@ rm -f ${Defer_File}
 
 warn_applying_updates () {
 Warn_Message="One or more updates which require a restart are being applied.
+This Mac will restart momentarily to complete the install. Please save any unsaved work.
 
-This Mac will restart momentarily to complete the install. Please wait..."
+Please wait..."
 
 "${JAMFHELPER}" -windowType utility\
 	-title "UoE Mac Supported Desktop"\
