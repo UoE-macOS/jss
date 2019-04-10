@@ -235,7 +235,7 @@ User=$(get_user)
 if [ ${User} == "none" ]; then
 	Launch_Agent="/Library/LaunchAgents/ed.is.jamfhelper-swupdate-v2.plist"
 	if [ -f ${Launch_Agent} ]; then
-		launchctl load -F -S LoginWindow ${Launch_Agent} 
+		launchctl load -F -S LoginWindow ${Launch_Agent} &
 	else
 		${PLISTBUDDY} -c "Add :Disabled bool true" ${Launch_Agent} 
 		${PLISTBUDDY} -c "Add :Label string ed.is.jamfhelper-swupdate-v2.plist" ${Launch_Agent} 
@@ -254,7 +254,7 @@ if [ ${User} == "none" ]; then
 		${PLISTBUDDY} -c "Add :RunAtLoad bool true" ${Launch_Agent} 
 		${PLISTBUDDY} -c "Add :keepAlive bool true" ${Launch_Agent} 
 		sleep 1
-		launchctl load -F -S LoginWindow ${Launch_Agent}  &
+		launchctl load -F -S LoginWindow ${Launch_Agent} &
 	fi
 else
 	"${JAMFHELPER}" -windowType utility\
