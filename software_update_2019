@@ -4,8 +4,8 @@
 #
 # Enable macOS softwareupdates with deferral
 #
-# Date: Fri  5 Apr 2019 17:01:19
-# Version: 0.1.2
+# Date: Wed 10 Apr 2019 10:05:31
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
@@ -231,14 +231,41 @@ Warn_Message="One or more updates which require a restart are being applied.
 This Mac will restart momentarily to complete the install. Please save any unsaved work.
 
 Please wait..."
-
-"${JAMFHELPER}" -windowType utility\
-	-title "UoE Mac Supported Desktop"\
-	-heading "Required Updates Applying"\
-    -icon ${Caution_Icon}\
-    -timeout 99999\
-    -description "${Warn_Message}" &
+User=$(get_user)
+if [ ${User} == "none" ]; then
+	Launch_Agent="/Library/LaunchAgents/ed.is.jamfhelper-swupdate-v2.plist"
+	if [ -f ${Launch_Agent} ]; then
+		launchctl load -F -S LoginWindow ${Launch_Agent} 
+	else
+		${PLISTBUDDY} -c "Add :Disabled bool true" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :Label string ed.is.jamfhelper-swupdate-v2.plist" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :LimitLoadToSessionType array" ${Launch_Agent}
+		${PLISTBUDDY} -c "Add :LimitLoadToSessionType: string LoginWindow" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments array" ${Launch_Agent}
+		${PLISTBUDDY} -c "Add :ProgramArguments: string ${JAMFHELPER}" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string -windowType" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string fs" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string -heading" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string Installing required macOS updates..." ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string -icon" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string ${Caution_Icon}" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string -description" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :ProgramArguments: string ${Warn_Message}" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :RunAtLoad bool true" ${Launch_Agent} 
+		${PLISTBUDDY} -c "Add :keepAlive bool true" ${Launch_Agent} 
+		sleep 1
+		launchctl load -F -S LoginWindow ${Launch_Agent}  &
+	fi
+else
+	"${JAMFHELPER}" -windowType utility\
+		-title "UoE Mac Supported Desktop"\
+		-heading "Installing required macOS updates..."\
+    	-icon ${Caution_Icon}\
+    	-timeout 99999\
+    	-description "${Warn_Message}" &
+fi
 }
+
 
 # Set some globals
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
@@ -247,6 +274,7 @@ if ! [ -e "${JAMFHELPER}" ]; then
 	exit 0;
 fi
 SWUPDATE="/usr/sbin/softwareupdate"
+PLISTBUDDY="/usr/libexec/PlistBuddy"
 Uni_Logo="/usr/local/jamf/UoELogo.png"
 Caution_Icon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns"
 User=$(get_user)
