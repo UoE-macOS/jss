@@ -4,7 +4,7 @@
 #
 # Enable macOS softwareupdates with deferral
 #
-# Date: Wed 10 Apr 2019 10:05:31
+# Date: Mon 15 Apr 2019 10:48:43
 # Version: 0.1.3
 # Creator: dsavage
 #
@@ -20,7 +20,7 @@ case $Mobility in
     if [ ${Battery} == "pass" ]; then
     	echo "Battery greater than 60% proceeding or plugged in."
     else
-    	echo "Battery less than 60% cannot proceed."
+    	echo "Battery less than 60% cannot proceed, or battery on charge at less than 10%."
     	exit 0;
     fi
     ;;
@@ -63,6 +63,7 @@ if [[ ${Power_Adapter} == "No adapter attached." ]]; then
 	if [ $Battery_Percentage -le 60 ]; then
 		Power_Status="fail"
 	else
+		# Check if the battery is less than 10% even if on charge.
 		if [ $Battery_Percentage -le 10 ]; then
 			Power_Status="fail"
 		else
@@ -75,7 +76,6 @@ fi
 echo ${Power_Status}
 }
 
-# Check network adapter
 get_network() {
 Active_Adapter=$( route get ed.ac.uk | grep interface | awk '{print $2}' )
 Adapter_Name=$( networksetup -listallhardwareports | grep -B1 "$Active_Adapter" | awk -F': ' '/Hardware Port/{print $NF}' )
@@ -106,8 +106,7 @@ echo ${Network}
 check_for_updates () {
 echo "Checking for pending system updates..."
 updateCheck=$( $SWUPDATE --list )
-# Determine whether any critical updates are available, and if any require
-# a restart. If no updates need to be installed, bail out.
+# Determine whether any critical updates are available, and if any require a restart. If no updates need to be installed, bail out.
 if [[ "$updateCheck" == *"[restart]"* ]]; then
 	Install_Status="all"
 elif [[ "$updateCheck" == *"[recommended]"* ]]; then
@@ -134,9 +133,9 @@ echo ${User}
 check_for_deferral () {
 Today=$( date  "+%Y/%m/%d" )
 if [ -f ${Defer_File} ]; then
-	Check_Defer_Limit=$( /usr/libexec/PlistBuddy -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
+	Check_Defer_Limit=$( ${PLISTBUDDY} -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
 	#2019-04-10T00:02:39
-	Text_Defer_Limit=$( /usr/libexec/PlistBuddy -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
+	Text_Defer_Limit=$( ${PLISTBUDDY} -c "Print  DeferOkUntil" ${Defer_File}  | awk '{print $1 " " $2 " " $3 " " $6}' )
 	#Wed Apr 10 01:02:39 GMT 2019
 else
 	# Defer date will be...
@@ -179,7 +178,7 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
     	# user is deferring.
     	if ! [ -f ${Defer_File} ]; then
     		Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
-			/usr/libexec/PlistBuddy -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
+			${PLISTBUDDY} -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
     		exit 0;
     	fi
 	fi
@@ -235,7 +234,7 @@ User=$(get_user)
 if [ ${User} == "none" ]; then
 	Launch_Agent="/Library/LaunchAgents/ed.is.jamfhelper-swupdate-v2.plist"
 	if [ -f ${Launch_Agent} ]; then
-		launchctl load -F -S LoginWindow ${Launch_Agent} &
+		launchctl load -F -S LoginWindow ${Launch_Agent}  &
 	else
 		${PLISTBUDDY} -c "Add :Disabled bool true" ${Launch_Agent} 
 		${PLISTBUDDY} -c "Add :Label string ed.is.jamfhelper-swupdate-v2.plist" ${Launch_Agent} 
@@ -265,7 +264,6 @@ else
     	-description "${Warn_Message}" &
 fi
 }
-
 
 # Set some globals
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
