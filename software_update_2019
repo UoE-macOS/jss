@@ -2,7 +2,17 @@
 
 ###################################################################
 #
-# Enable macOS softwareupdates with deferral
+# This script provides a deferral and enforcement mechanism for
+# software updates. If updates are available which don't require
+# a restart, they are installed silently in the background. If critical
+# updates are found which do require a restart, the user is nagged to
+# install them and given the option to defer for up to DEFER_LIMIT
+# days. DEFER_LIMIT can be set as ${4} in the JSS.
+# After DEFER_LIMIT days the warning can't be dismissed until the user
+# agrees to install the updates.
+#
+# If no user is logged in at all (including via SSH), then we lock the
+# login screen and install any pending updates.
 #
 # Date: Mon 15 Apr 2019 10:48:43
 # Version: 0.1.3
@@ -10,7 +20,7 @@
 #
 ##################################################################
 
-set -x
+#set -x
 
 main() {
 Mobility=$(get_mobility)
@@ -18,7 +28,7 @@ case $Mobility in
 	mobile)
     Battery=$(get_battery)
     if [ ${Battery} == "pass" ]; then
-    	echo "Battery greater than 60% proceeding or plugged in."
+    	echo "Battery greater than 60% or plugged in, proceeding."
     else
     	echo "Battery less than 60% cannot proceed, or battery on charge at less than 10%."
     	exit 0;
