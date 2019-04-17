@@ -164,6 +164,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
  -button1 "Apply now"`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
+	echo "Must install updates as deferral date reached."
     	install_updates
 	fi
 else
@@ -181,9 +182,11 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
  -button2 "Apply later"`
 	if [ ${Result} == 0 ]; then
     	# Install the updates
+	echo "User opted to install updates."
     	install_updates
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
+	echo "User opted to defer until ${Text_Defer_Limit}."
     	if ! [ -f ${Defer_File} ]; then
     		Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
 			${PLISTBUDDY} -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
