@@ -30,12 +30,12 @@ case $Mobility in
     if [ ${Battery} == "pass" ]; then
     	echo "Battery greater than 60% or plugged in, proceeding."
     else
-    	echo "Battery less than 60% cannot proceed, or battery on charge at less than 10%."
+    	echo "Battery less than 60% or battery on charge at less than 10%, cannot proceed."
     	exit 0;
     fi
     ;;
     desktop)
-    echo "Is desktop so proceeding."
+    echo "This is a desktop, so power status pass, proceeding."
     ;;
 esac
 
@@ -44,12 +44,14 @@ if [ ${Network} == "pass" ]; then
     echo "Not an unauthenticated, public or slow network, continuing."
     check_for_updates
  	if [ ${User} == "none" ]; then
+ 		echo "No user present, installing"
     	install_updates
     else
+    	echo "User present, check for deferal before install."
     	check_for_deferral
     fi
 else
-   	echo "Network error cannot proceed"
+   	echo "Network check failed, cannot proceed."
    	exit 0;
 fi
 }
@@ -126,10 +128,6 @@ else
     clean_up
     exit 0;
 fi
-# Download updates (all updates if a restart is required for any, otherwise
-# just recommended updates).
-#echo "Pre-downloading $installWhich system updates..."
-#$SWUPDATE --download --$Install_Status
 }
 
 get_user () {
@@ -141,7 +139,7 @@ echo ${User}
 }
 
 check_for_deferral () {
-Today=$( date  "+%Y/%m/%d" )
+Today=$( date  "+%Y-%m-%d" )
 if [ -f ${Defer_File} ]; then
 	Check_Defer_Limit=$( ${PLISTBUDDY} -x -c "Print DeferOkUntil" ${Defer_File}  | grep "<date>" | awk -F "<date>" '{print $2}' | awk -F "Z" '{print $1}' |  awk -F "T" '{print $1}' )
 	#2019-04-10T00:02:39
@@ -238,7 +236,6 @@ rm -f ${Defer_File}
 warn_applying_updates () {
 Warn_Message="One or more updates which require a restart are being applied.
 This Mac will restart momentarily to complete the install. Please save any unsaved work.
-
 Please wait..."
 User=$(get_user)
 if [ ${User} == "none" ]; then
