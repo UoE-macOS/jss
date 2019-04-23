@@ -151,23 +151,6 @@ else
 fi
 Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
-	# Can't defer any longer
-	Description_Text="One or more software updates require a restart.
-	
-Updates must be applied regularly. Please save any unsaved work.
-You are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit}"
-	Result=`"${JAMFHELPER}" -windowType utility\
- -title "UoE Mac Supported Desktop"\
- -heading "Software Update Available"\
- -icon "${Software_Update_Icon}"\
- -description "${Description_Text}"\
- -button1 "Apply now"`
-	if [ ${Result} == 0 ]; then
-    	#Install the updates
-	echo "Must install updates as deferral date reached."
-    	install_updates
-	fi
-else
 	Description_Text="One or more software updates require a restart.
 	
 Updates must be applied regularly. Please save any unsaved work.
@@ -187,11 +170,28 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
 	echo "User opted to defer until ${Text_Defer_Limit}."
-    	if ! [ -f ${Defer_File} ]; then
-    		Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
+    		if ! [ -f ${Defer_File} ]; then
+    			Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
 			${PLISTBUDDY} -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
-    		exit 0;
-    	fi
+    			exit 0;
+    		fi
+	fi
+else
+	# Can't defer any longer
+	Description_Text="One or more software updates require a restart.
+	
+Updates must be applied regularly. Please save any unsaved work.
+You are required to apply updates and restart. Deferral limit was: ${Text_Defer_Limit}"
+	Result=`"${JAMFHELPER}" -windowType utility\
+ -title "UoE Mac Supported Desktop"\
+ -heading "Software Update Available"\
+ -icon "${Software_Update_Icon}"\
+ -description "${Description_Text}"\
+ -button1 "Apply now"`
+	if [ ${Result} == 0 ]; then
+    	#Install the updates
+	echo "Must install updates as deferral date reached."
+    	install_updates
 	fi
 fi
 }
