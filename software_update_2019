@@ -103,7 +103,7 @@ if [[ "$Adapter_Name" =~ "Ethernet" ]]; then
 elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
     Max_Link_Speed=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/maxRate/{print $NF}')
 	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
-	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 250 ]; then
+	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 200 ]; then
 		Network="fail"
 		Link_Speed=$Max_Link_Speed
 	else
