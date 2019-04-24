@@ -108,7 +108,7 @@ if [[ "$Adapter_Name" =~ "Ethernet" ]]; then
 elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
     Max_Link_Speed=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/maxRate/{print $NF}')
 	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
-	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 200 ]; then
+	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 250 ]; then
 		Network="fail"
 		Link_Speed=$Max_Link_Speed
 	else
@@ -156,11 +156,11 @@ else
 fi
 Software_Update_Icon=$(get_softwareupdate_icon)
 if [[ "${Check_Defer_Limit}" > "${Today}" ]]; then
+	# User can defer
 	Description_Text="One or more software updates require a restart.
 	
 Updates must be applied regularly. Please save any unsaved work.
 You will be required to apply updates and restart after: ${Text_Defer_Limit}"
-	# User can defer
 	Result=`"${JAMFHELPER}" -windowType utility\
  -title "UoE Mac Supported Desktop"\
  -heading "Software Update Available"\
@@ -170,16 +170,14 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
  -button2 "Apply later"`
 	if [ ${Result} == 0 ]; then
     	# Install the updates
-	echo "User opted to install updates."
     	install_updates
 	elif [ ${Result} == 2 ]; then
     	# user is deferring.
-	echo "User opted to defer until ${Text_Defer_Limit}."
-    		if ! [ -f ${Defer_File} ]; then
-    			Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
+    	if ! [ -f ${Defer_File} ]; then
+    		Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
 			${PLISTBUDDY} -c "Add :DeferOkUntil date ${Defer_Limit}" ${Defer_File} 
-    			exit 0;
-    		fi
+    		exit 0;
+    	fi
 	fi
 else
 	# Can't defer any longer
@@ -195,7 +193,6 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
  -button1 "Apply now"`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
-	echo "Must install updates as deferral date reached."
     	install_updates
 	fi
 fi
