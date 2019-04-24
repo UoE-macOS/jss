@@ -14,8 +14,8 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates.
 #
-# Date: Mon 15 Apr 2019 10:48:43
-# Version: 0.1.3
+# Date: Wed 24 Apr 2019 11:55:29 BST
+# Version: 0.1.4
 # Creator: dsavage
 #
 ##################################################################
@@ -47,8 +47,13 @@ if [ ${Network} == "pass" ]; then
  		echo "No user present, installing"
     	install_updates
     else
-    	echo "User present, check for deferal before install."
-    	check_for_deferral
+    	if [ ${Install_Status} = "recommended" ]; then
+    		echo "User present, but updates don't require a restart"
+    		install_updates
+    	else
+    		echo "User present, check for deferal before install."
+    		check_for_deferral
+    	fi
     fi
 else
    	echo "Network check failed, cannot proceed."
