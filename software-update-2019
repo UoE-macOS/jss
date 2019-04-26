@@ -171,9 +171,11 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
  -button1 "Apply now"\
  -button2 "Apply later"`
 	if [ ${Result} == 0 ]; then
+	echo "User has opted not to defer, installing updates."
     	# Install the updates
     	install_updates
 	elif [ ${Result} == 2 ]; then
+	echo "User has opted to defer, updates must be installed on or after: ${Text_Defer_Limit}."
     	# user is deferring.
     	if ! [ -f ${Defer_File} ]; then
     		Defer_Limit=$( date -v +${Deferral_Time}d "+%m/%d/%y" )
