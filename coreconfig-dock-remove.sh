@@ -9,8 +9,8 @@
 # and sets a hidden file so that the state is retained. Script is executed
 # from Self Service.
 #
-# Last Changed: "Wed 02 Aug 2017 15:30:04"
-# Version: 0.1.1
+# Last Changed: Fri 26 Apr 2019 10:05:33 BST
+# Version: 0.1.2
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -33,7 +33,7 @@ DOCK_UTIL="/usr/local/bin/dockutil"
 
 echo "The Dock Utility is at $DOCK_UTIL"
 
-$DOCK_UTIL --remove 'RemoteSupport' --no-restart $DOCK_PREF
-$DOCK_UTIL --remove 'Support' $DOCK_PREF
+$DOCK_UTIL --remove 'RemoteSupport.url' --no-restart $DOCK_PREF
+$DOCK_UTIL --remove 'Support.url' $DOCK_PREF
 
 exit 0;
