@@ -98,15 +98,15 @@ removeApplication() {
 	fi
 }
 
-# Declare Jamf Helper location
+# Declare jamfHelper location
 jamfHelper="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
-# Check to make sure JamHelper exists
+# Check to make sure jamfHelper exists
 if [[ ! -x ${jamfHelper} ]]; then
 		echo "******* jamfHelper not found. *******" | timestamp 2>&1 | tee -a $logFile
 		echo "Exiting script as cannot display dialog." | timestamp 2>&1 | tee -a $logFile
         exit 1;
 	else
-		echo "JamfHelper found" | timestamp 2>&1 | tee -a $logFile
+		echo "jamfHelper found" | timestamp 2>&1 | tee -a $logFile
 fi
 
 # Icon location
@@ -119,7 +119,7 @@ fileVaultMessage="FileVault2 is currently enabled on this macOS device. Before c
 Are you sure you want to conitnue?"
 fileVaultErrorMessage="This process is unable to obtain the encryption status of this device. Please be aware that if you continue, you could potentially permanently remove the FileVault2 recovery key which is stored in the JSS record.
 
-Do you wish to conitnue?"
+Do you wish to continue?"
 
 # Get current user
 echo "Obtaining Currently logged in user..." | timestamp 2>&1 | tee -a $logFile
@@ -226,6 +226,11 @@ echo "Removing Remote Support app..." | timestamp 2>&1 | tee -a $logFile
 removeApplication "/Applications/RemoteSupport.app"
 killProcess "jamfHelper"
 
+echo "Removing Recovery Agent..." | timestamp 2>&1 | tee -a $logFile
+launchctl unload -w /Library/LaunchDaemons/ed.is.jamf-self-heal.plist
+rm -f /Library/LaunchDaemons/ed.is.jamf-self-heal.plist 
+
+
 # Remove managed preferences
 "${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Removing Managed Preferences....." &
 # Remove NoMAD preferences
@@ -275,13 +280,13 @@ killProcess "jamfHelper"
 
 # Remove local jamf framework
 # Possibly use Apple script for notification?
-echo "Removing local jamf framework....." | timestamp 2>&1 | tee -a $logFile
+echo "Removing local JAMF framework....." | timestamp 2>&1 | tee -a $logFile
 /usr/local/bin/jamf removeFramework
 
 echo "Done." | timestamp 2>&1 | tee -a $logFile
 
 osascript <<'END'
-display dialog "Successfully removed jamf components." with icon file ("System:Library:CoreServices:CoreTypes.bundle:Contents:Resources:AlertNoteIcon.icns") buttons {"OK"} default button "OK"
+display dialog "Successfully removed JAMF components." with icon file ("System:Library:CoreServices:CoreTypes.bundle:Contents:Resources:AlertNoteIcon.icns") buttons {"OK"} default button "OK"
 END
 
 exit 0;
