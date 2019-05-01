@@ -49,7 +49,7 @@ killProcess() {
 		echo "$1 process found. Terminating..."
 		pkill $1
 	else 
-		echo "Cannott find a running $1 process. Checking 2nd time to make sure..."
+		echo "Cannot find a running $1 process. Checking 2nd time to make sure..."
 	# Check 2nd time to make sure
 		if pgrep $1 2>/dev/null;
 		then
@@ -82,7 +82,6 @@ function DecryptString() {
     # Usage: ~$ DecryptString "Encrypted String" "Salt" "Passphrase"
     echo "${1}" | /usr/bin/openssl enc -aes256 -d -a -A -S "${2}" -k "${3}"
 }
-
 
 
 # Function for removing application
@@ -161,7 +160,7 @@ else
 fi
 
 # Kill processes
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Stopping processes...." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Stopping processes...." &
 echo "Attempting to stop NoMAD process..." | timestamp 2>&1 | tee -a $logFile
 killProcess "NoMAD" 
 echo "Attempting to stop sysinfo process..." | timestamp 2>&1 | tee -a $logFile
@@ -169,7 +168,7 @@ killProcess "sysinfo"
 killProcess "jamfHelper"
 
 # Remove login items
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Removing login items...." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Removing login items...." &
 echo "Attempting to remove NoMAD login item..." | timestamp 2>&1 | tee -a $logFile
 removeLoginItem "NoMAD"
 echo "Attempting to remove sysinfo login item..." | timestamp 2>&1 | tee -a $logFile
@@ -177,7 +176,7 @@ removeLoginItem "sysinfo"
 killProcess "jamfHelper"
 
 # Remove dock items and dock util
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Removing dock items and dockutil app....." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Removing dock items and dockutil app....." &
 echo "Removing dock items and dockutil app..." | timestamp 2>&1 | tee -a $logFile
 # Declare DockUtil location
 dockutil="/usr/local/bin/dockutil"
@@ -202,13 +201,13 @@ fi
 killProcess "jamfHelper"
 
 # Removing local management components
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Removing local management components...." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Removing local management components...." &
 echo "Removing MacSD folder and sub items...." | timestamp 2>&1 | tee -a $logFile
 rm -rfv "/Library/MacSD"
 killProcess "jamfHelper"
 
 # Remove apps  
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}"-description "Removing management applications...." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Removing management applications...." &
 # Remove NoMAD Application
 echo "Removing NoMAD app..." | timestamp 2>&1 | tee -a $logFile
 removeApplication "/Applications/NoMAD.app"
@@ -232,7 +231,7 @@ rm -f /Library/LaunchDaemons/ed.is.jamf-self-heal.plist
 
 
 # Remove managed preferences
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Removing Managed Preferences....." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "removing JAMF" -description "Removing Managed Preferences....." &
 # Remove NoMAD preferences
 echo "Removing NoMAD preferences..." | timestamp 2>&1 | tee -a $logFile
 NoMADPrefs="/Users/$username/Library/Preferences/com.trusourcelabs.NoMAD.plist"
@@ -250,7 +249,7 @@ killProcess "jamfHelper"
 JSSusername=`DecryptString "$apiuser" "$salt" "$pphrase"`
 JSSpword=`DecryptString "$apipword" "$salt" "$pphrase"`
 
-"${jamfHelper}" -windowType utility -icon "{$toolIcon}" -description "Attempting to remove $2 record from the JSS...." &
+"${jamfHelper}" -windowType utility -icon "${toolIcon}" -title "Removing JAMF" -description "Attempting to remove $2 record from the JSS...." &
 echo "Attempting to remove record from the JSS...." | timestamp 2>&1 | tee -a $logFile
 echo "Name of record is $compname" | timestamp 2>&1 | tee -a $logFile
 # Attmept to get record
