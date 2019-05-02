@@ -14,8 +14,8 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates.
 #
-# Date: Wed 24 Apr 2019 11:55:29 BST
-# Version: 0.1.4
+# Date: Thu  2 May 2019 09:33:57 BST
+# Version: 0.1.5
 # Creator: dsavage
 #
 ##################################################################
@@ -39,25 +39,18 @@ case $Mobility in
     ;;
 esac
 
-Network=$(get_network)
-if [ ${Network} == "pass" ]; then
-    echo "Not an unauthenticated, public or slow network, continuing."
-    check_for_updates
- 	if [ ${User} == "none" ]; then
- 		echo "No user present, installing"
+check_for_updates
+if [ ${User} == "none" ]; then
+    echo "No user present, installing"
+    install_updates
+else
+    if [ ${Install_Status} = "recommended" ]; then
+    	echo "User present, but updates don't require a restart"
     	install_updates
     else
-    	if [ ${Install_Status} = "recommended" ]; then
-    		echo "User present, but updates don't require a restart"
-    		install_updates
-    	else
-    		echo "User present, check for deferal before install."
-    		check_for_deferral
-    	fi
+    	echo "User present and updates require restart, check for deferal before install."
+    	check_for_deferral
     fi
-else
-   	echo "Network check failed, cannot proceed."
-   	exit 0;
 fi
 }
 
@@ -91,34 +84,6 @@ else
     Power_Status="pass"
 fi
 echo ${Power_Status}
-}
-
-get_network() {
-Active_Adapter=$( route get ed.ac.uk | grep interface | awk '{print $2}' )
-Adapter_Name=$( networksetup -listallhardwareports | grep -B1 "$Active_Adapter" | awk -F': ' '/Hardware Port/{print $NF}' )
-# Find out out link status if we are on Ethernet or Wireless, then work out if updates should happen.
-if [[ "$Adapter_Name" =~ "Ethernet" ]]; then
-    Link_Speed=$(ifconfig $Active_Adapter | awk -F': ' '/media:/{print $NF}' | awk -F '[()]' '{print $2}' | awk '{print $1}')
-	# Make sure we have a decent connection.
-	if [[ "$Link_Speed" =~ "100baseT" ]] || [[ "$Link_Speed" == "1000baseT" ]]; then
-		Network="pass"
-	else
-		Network="fail"
-	fi
-elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
-    Max_Link_Speed=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/maxRate/{print $NF}')
-	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
-	# 4G/3G dongle max is 150
-	if [ "$Link_Auth" == "none" ] || [ $Max_Link_Speed -le 200 ]; then
-		Network="fail"
-		Link_Speed=$Max_Link_Speed
-	else
-		Network="pass"
-	fi
-else
-	Network="fail"
-fi
-echo ${Network}
 }
 
 check_for_updates () {
