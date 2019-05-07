@@ -16,10 +16,10 @@
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: "Tue 28 Nov 2017 09:57:53 GM"
-# Version: 0.1.7
+# Date: "Tue  7 May 2019 15:07:29 BST"
+# Version: 0.2.0
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: dsavage
+# Released by JSS User: ganders1
 #
 ##################################################################
 
@@ -140,21 +140,20 @@ got_krb_tgt() {
   printf '%s' "${pwd}" | kinit --password-file=STDIN "${uun}@${KRB_REALM}"
 }
 
-delete_lcfg() {
-if [ $dialogue == "YES" ]; then
-	# Display a message in the background...
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- -windowType utility\
- -title 'UoE Mac Supported Desktop'\
- -heading 'Removing LCFG'\
- -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- -timeout 99999\
- -description "$(echo -e We are removing the previous management framework.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
-	/usr/local/bin/jamf policy -event Delete-LCFG
-	killall jamfHelper
-else
-/usr/local/bin/jamf policy -event Delete-LCFG
-fi
+get_cmd() {
+    # These are the two background install locations.
+    cmd1="installer -pkg /Library/MacMDP/Downloads/QuickAdd-0.2-1.pkg"
+    cmd2="installer -pkg /Library/Application Support/JAMF/Downloads/QuickAdd-0.2-1.pkg"
+    # Determine installation process
+    checkprocess1=`ps -A | grep "$cmd1" | grep -v "grep"`
+    checkprocess2=`ps -A | grep "$cmd2" | grep -v "grep"`
+
+    if [ -z $checkprocess1 ] && [ -z $checkprocess2 ]; then
+	    background="False"
+    else
+	    background="True"
+    fi
+    echo ${background}
 }
 
 health_check() {
@@ -233,7 +232,7 @@ fi
 }
 
 do_restart () {
-username=`ls -l /dev/console | awk '{print $3}'`
+username=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
 
 if [ -z $username ] || [ "$username" == '' ]; then
 	dialogue="NO"
@@ -293,7 +292,7 @@ get_school() {
 }
 
 get_macaddr() {
-  active_adapter=`route get ${JSS_URL} | grep interface | awk '{print $2}'`
+  active_adapter=`route get ed.ac.uk | grep interface | awk '{print $2}'`
   macaddr=$(ifconfig $active_adapter ether | awk '/ether/ {print $NF}')
   logger "$0: MAC Address: ${macaddr}"
   echo ${macaddr}
@@ -302,11 +301,13 @@ get_macaddr() {
 
 get_edlan_dnsname() {
   mac=$(get_macaddr)
-  #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
-  dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
-  # Remove anything potentially dodgy 
-  dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
-  echo ${dnsname}
+  if ! [ -z ${mac} ]; then
+     #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
+     dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     # Remove anything potentially dodgy 
+     dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
+     echo ${dnsname}
+  fi
   logger "$0: DNS Name: ${dnsname}"
 }
 
@@ -472,26 +473,28 @@ EOT
 touch "${LOCK_FILE}"
 
 # Is there a user logged in
-username=`ls -l /dev/console | awk '{print $3}'`
+username=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
 dialogue=""
 
 # What OS is running?
 osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
 
-# Determine installation process
-cmd="installer -pkg /Library/MacMDP/Downloads/QuickAdd-0.1-1.pkg"
-cmdinstall=`ps -A | grep "$cmd" | grep -v "grep"`
 
 if [ -z $username ] || [ "$username" == '' ]; then
 	dialogue="NO"
 else
-	dialogue="YES"
-fi
-
-if [ "$cmdinstall" == '' ] || [ -z $cmdinstall ]; then
-	dialogue="YES"
-else
-	dialogue="NO"
+	cmdinstall=$(get_cmd)
+	case $cmdinstall in
+		True)
+		dialogue="NO"
+		;;
+		False)
+		dialogue="YES"
+		;;
+		*)
+		dialogue="NO"
+		;;
+	esac
 fi
 
 usertype=""
@@ -551,9 +554,6 @@ else
   fi
 fi
 
-# If an old LCFG installation exists, delete it.
-delete_lcfg
-
 # Run recon to let the JSS know who the primary user of this machine will be
 update_jss ${uun} 
 
@@ -564,13 +564,15 @@ trigger_core_apps
 
 free_space=`diskutil info / | grep "Free Space" | awk '{print $4}' | awk -F "." '{print $1}'`
 
-if [ $osversion == "12" ] || [ -e /Applications/Install\ macOS\ Sierra.app ]; then
-	logger "$0: OS installer already in-place or OS on version 12."
+if [ $osversion == "12" ] || [ $osversion == "13" ]; then
+	logger "$0: OS installer already in-place or OS on version 12 or 13."
 else
-    if [ $free_space -ge 25 ]; then
-	trigger_os_installer
-	else
-	logger "$0: Not enough free disk space to continue"
+    if [ "${usertype}" == "desktop" ]; then
+        if [ $free_space -ge 25 ]; then
+	        trigger_os_installer
+	    else
+	        logger "$0: Not enough free disk space to continue"
+	    fi
 	fi
 fi
 
