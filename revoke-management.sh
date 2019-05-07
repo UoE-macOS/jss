@@ -185,9 +185,8 @@ if [ -e $dockutil ];
 then
 	# Remove dock items
 	echo "dockutil exists! Removing dock items..." | timestamp 2>&1 | tee -a $logFile
-	/usr/local/bin/dockutil/ --remove RemoteSupport.url
-    /usr/local/bin/dockutil/ --remove Support.url
-    /usr/local/bin/dockutil/ --remove "Self Service"    
+    /usr/local/bin/jamf policy -event rmSupportIcons
+    /usr/local/bin/dockutil --remove "Self Service"    
 	sleep 2
 	# Kill Finder
 	killall Finder
@@ -278,14 +277,21 @@ fi
 killProcess "jamfHelper"
 
 # Remove local jamf framework
-# Possibly use Apple script for notification?
+osascript -e 'display notification "Removing local jamf framework" with title "Remove JAMF"'
 echo "Removing local JAMF framework....." | timestamp 2>&1 | tee -a $logFile
 /usr/local/bin/jamf removeFramework
+
+# Remove uoemanage account
+osascript -e 'display notification "Removing uoemanage account...." with title "Remove JAMF"'
+echo "Removing uoemanage account object..." | timestamp 2>&1 | tee -a $logFile
+dscl . delete /Users/uoemanage
+echo "Deleting uoemanage home folder..." | timestamp 2>&1 | tee -a $logFile
+rm -rf /Users/uoemanage
 
 echo "Done." | timestamp 2>&1 | tee -a $logFile
 
 osascript <<'END'
-display dialog "Successfully removed JAMF components." with icon file ("System:Library:CoreServices:CoreTypes.bundle:Contents:Resources:AlertNoteIcon.icns") buttons {"OK"} default button "OK"
+display dialog "Successfully removed JAMF components." with icon file ("System:Library:CoreServices:CoreTypes.bundle:Contents:Resources:AlertNoteIcon.icns") buttons {"Done"} default button "Done"
 END
 
 exit 0;
