@@ -134,7 +134,7 @@ You will be required to apply updates and restart after: ${Text_Defer_Limit}"
  -icon "${Software_Update_Icon}"\
  -description "${Description_Text}"\
  -button1 "Apply now"\
- -button2 "Apply later"
+ -button2 "Apply later"\
  -timeout 7200`
 	if [ ${Result} == 0 ]; then
 	echo "User has opted not to defer, installing updates."
@@ -160,7 +160,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
  -heading "Software Update Available"\
  -icon "${Software_Update_Icon}"\
  -description "${Description_Text}"\
- -button1 "Apply now"
+ -button1 "Apply now"\
  -timeout 7200`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
