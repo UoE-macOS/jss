@@ -14,7 +14,7 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates.
 #
-# Date: Fri 10 May 2019 15:04:12 BST
+# Date: Tue 21 May 2019 09:47:08 BST
 # Version: 0.1.6
 # Creator: dsavage
 #
@@ -160,8 +160,7 @@ You are required to apply updates and restart. Deferral limit was: ${Text_Defer_
  -heading "Software Update Available"\
  -icon "${Software_Update_Icon}"\
  -description "${Description_Text}"\
- -button1 "Apply now"\
- -timeout 7200`
+ -button1 "Apply now"`
 	if [ ${Result} == 0 ]; then
     	#Install the updates
     	install_updates
