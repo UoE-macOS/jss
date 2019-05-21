@@ -199,6 +199,8 @@ clean_up
 	$SWUPDATE --install --$Install_Status
 	sleep 1
 	if [ $Install_Status == "all" ]; then
+		# flag file for a recon to occur after the restart
+		touch /Library/MacSD/SUDONE
 		/usr/local/bin/jamf policy -event authenticated-restart
 	fi
 }
