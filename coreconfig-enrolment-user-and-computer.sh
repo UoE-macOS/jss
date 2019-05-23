@@ -16,10 +16,10 @@
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: "Tue  7 May 2019 15:07:29 BST"
-# Version: 0.2.0
+# Date: "Thu 23 May 2019 15:29:42 BST"
+# Version: 0.2.1
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: ganders1
+# Released by JSS User: dsavage
 #
 ##################################################################
 
@@ -434,7 +434,7 @@ warn_no_user_account() {
   sudo -u ${logged_in_user} osascript << EOT
    tell application "Finder"
     activate
-    display dialog "Warning - local account creation failed for ${uun}\n\nYou will need to create one manually."¬      
+    display dialog "Warning - account creation failed for ${uun}\n\nOn a laptop you will need to create one manually. On a desktop, please check the AD bind."¬      
     buttons {"OK"} default button {"OK"}      
     end tell
 EOT
@@ -529,28 +529,24 @@ set_computer_name ${uun}
 
 if ! $(has_local_account ${uun})
 then
-  if [ $usertype == "Mobile" ]
-  then
-  bind_ad
-  create_mobile_account ${uun}
+  if [ $usertype == "Mobile" ]; then
+  	bind_ad
+  	create_mobile_account ${uun}
+  elif [ $usertype == "Local" ] || [ -z $usertype ]; then
+  	create_local_account ${uun}
   fi
-  if [ $usertype == "Local" ] || [ -z $usertype ]
-  then
-  create_local_account ${uun}
-  fi
-  if [ ${?} != 0 ]
-  then
+  if [ ${?} != 0 ]; then
   	if [ $dialogue == "YES" ]; then
-    warn_no_user_account ${uun}
+    	warn_no_user_account ${uun}
     fi
   else
   	if [ $dialogue == "YES" ]; then
-    success_message ${uun}
+    	success_message ${uun}
     fi
   fi  
 else
   if [ $dialogue == "YES" ]; then
-  success_message_existing_account ${uun}
+  	success_message_existing_account ${uun}
   fi
 fi
 
