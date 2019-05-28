@@ -14,7 +14,7 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates.
 #
-# Date: Tue 21 May 2019 09:47:08 BST
+# Date: Tue 28 May 2019 16:58:23 BST
 # Version: 0.1.6
 # Creator: dsavage
 #
@@ -212,8 +212,7 @@ rm -f ${Defer_File}
 
 warn_applying_updates () {
 Warn_Message="One or more updates which require a restart are being applied.
-This Mac will restart momentarily to complete the install. Please save any unsaved work.
-Please wait..."
+This Mac will restart momentarily to complete the install. Please wait..."
 User=$(get_user)
 if [ ${User} == "none" ]; then
 	Launch_Agent="/Library/LaunchAgents/ed.is.jamfhelper-swupdate-v2.plist"
