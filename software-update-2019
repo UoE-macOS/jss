@@ -14,7 +14,7 @@
 # If no user is logged in at all (including via SSH), then we lock the
 # login screen and install any pending updates.
 #
-# Date: Tue 28 May 2019 16:58:23 BST
+# Date: Thu 30 May 2019 15:54:27 BST
 # Version: 0.1.6
 # Creator: dsavage
 #
@@ -23,6 +23,16 @@
 #set -x
 
 main() {
+Network=$(get_network)
+if [ ${Network} == "pass" ]; then
+	# We have network, do a check
+	check_for_updates
+else
+	# No network, set a flag to check again on network state change.
+	touch /Library/MacSD/SUNOTDONE
+	exit 0;
+fi
+
 Mobility=$(get_mobility)
 case $Mobility in
 	mobile)
@@ -31,6 +41,8 @@ case $Mobility in
     	echo "Battery greater than 60% or plugged in, proceeding."
     else
     	echo "Battery less than 60% or battery on charge at less than 10%, cannot proceed."
+	# Battery fail, set a flag to check again on network state change.
+	touch /Library/MacSD/SUNOTDONE
     	exit 0;
     fi
     ;;
@@ -39,7 +51,6 @@ case $Mobility in
     ;;
 esac
 
-check_for_updates
 if [ ${User} == "none" ]; then
     echo "No user present, installing"
     install_updates
@@ -52,6 +63,25 @@ else
     	check_for_deferral
     fi
 fi
+}
+
+get_network() {
+Active_Adapter=$( route get uoe.jamfcloud.com | grep interface | awk '{print $2}' )
+Adapter_Name=$( networksetup -listallhardwareports | grep -B1 "$Active_Adapter" | awk -F': ' '/Hardware Port/{print $NF}' )
+# Find out out link status if we are on Ethernet or Wireless, then work out if updates should happen.
+if [[ "$Adapter_Name" =~ "Ethernet" ]]; then
+		Network="pass"
+elif [[ "$Adapter_Name" =~ "Wi-Fi" ]]; then
+	Link_Auth=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/link auth/{print $NF}')
+	if [ "$Link_Auth" == "none" ]; then
+		Network="fail"
+	else
+		Network="pass"
+	fi
+else
+	Network="fail"
+fi
+echo ${Network}
 }
 
 get_mobility() {
@@ -262,6 +292,9 @@ User=$(get_user)
 Install_Status=""
 Defer_File="/var/db/UoESoftwareUpdateDeferral.V2"
 Deferral_Time=${4}
+
+# remove the flag file as we are about to run (again).
+rm -f /Library/MacSD/SUNOTDONE
 
 # Call the main function
 main
