@@ -6,7 +6,7 @@
 # if filevault is currently disabled and the user logging
 # in is a valid user in our directory service.
 #
-# Date: Thu 20 Dec 2018 14:17:54 GMT
+# Date: Thu 30 May 2019 14:12:40 BST
 # Version: 0.1.7
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
@@ -29,6 +29,11 @@ filevault_is_enabled() {
   fdesetup status | grep 'FileVault is On'
   [ $? == 0 ]
 }
+
+if pgrep -f "/usr/local/bin/jamf enroll" >/dev/null 2>&1 ; then
+	echo "QuickAdd package is running, exiting this FileVault check"
+    exit 0;
+fi
 
 # in-built jamf variable $3, doesn't seem to be returning a valid username, even if a uun account is logged on.
 user_name=`ls -l /dev/console | awk '{print $3}'`
