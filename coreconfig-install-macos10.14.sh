@@ -4,13 +4,12 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Tue 26 Feb 2019 16:05:00 GMT
+# Date: Thu  6 Jun 2019 15:52:10 BST
 # Version: 0.1.2
 # Creator: ganders1
 #
 ##################################################################
 
-date > /Users/Shared/installTST.log
 
 # # # # # # 
 # SYSTEM CHECKS
@@ -21,24 +20,25 @@ date > /Users/Shared/installTST.log
 if [ -e /macOS\ Install\ Data ]
 then
 # Install proces already underway
-exit 0
+exit 0;
 fi
 
 ##Check if free space > 15GB
 freeSpace=$( /usr/sbin/diskutil info / | grep "Free Space" | awk '{print $4}' )
 if [[ ${freeSpace%.*} -ge 15 ]]; then
     spaceStatus="OK"
-    /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected" >> /Users/Shared/installTST.log
+    /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
 else
     spaceStatus="ERROR"
-    /bin/echo "Disk Check: ERROR - ${freeSpace%.*} Free Space Detected" >> /Users/Shared/installTST.log
+    /bin/echo "Disk Check: ERROR - ${freeSpace%.*} Free Space Detected"
+    exit 0;
 fi
 
-username=`who | grep console | awk '{print $1}'`
+username=$( python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");' )
 if [ -z $username ]; then
-	NoUser=True
+	UserLoggedIn="False"
 else
-	NoUser=False
+	UserLoggedIn="True"
 fi
 
 sleep 2
@@ -61,7 +61,8 @@ icon=/Applications/Install\ macOS\ Mojave.app/Contents/Resources/InstallAssistan
 
 ##Launch jamfHelper
 
-if [ $NoUser == False ]; then
+if [ "${UserLoggedIn}" == "True" ]; then
+echo "User present... Starting Jamf helper."
 /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType fs -title "" -icon "$icon" -heading "$heading" -description "$description" &
 jamfHelperPID=$(echo $!)
 fi
@@ -73,6 +74,12 @@ echo $macOS_app_vers
 if [ -z $macOS_app_vers ]; then
 	macOS_app_vers=136
 fi
+if [ -z $macOS_loc_vers ]; then
+	macOS_loc_vers=136
+fi
+
+# remove the receipt for the policy banner, so it gets re-installed.
+rm -f /Library/Application\ Support/JAMF/Receipts/SavingPolicyBanner*
 
 if [ $macOS_app_vers -ge 140 ]; then
 	echo "first test macOS 14.0 or newer present"
@@ -83,7 +90,7 @@ if [ $macOS_app_vers -ge 140 ]; then
 		ditto "/Applications/Install macOS Mojave.app" "/Library/MacSD/Install macOS Mojave.app"
         # delete the login banner as we are updating macOS
 		rm -fR /Library/Security/PolicyBanner.rtfd
-		if [ $NoUser == True ]; then
+		if [ "${UserLoggedIn}" == "False" ]; then
 			/Library/MacSD/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ Mojave.app --nointeraction --agreetolicense 
 		else
             /Library/MacSD/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ Mojave.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
@@ -93,12 +100,14 @@ if [ $macOS_app_vers -ge 140 ]; then
 		# Do a delete incase an older version is there
 		rm -fR "/Library/MacSD/Install macOS Mojave.app"
         # Add the installer
+        echo "attempting to download the OS installer"
         /usr/local/bin/jamf policy -event OS-Installer
 		# Copy the installer to our folder so we can retain it for future use
+        echo "copying the OS installer to MacSD"
 		ditto "/Applications/Install macOS Mojave.app" "/Library/MacSD/Install macOS Mojave.app"
         # delete the login banner as we are updating macOS
 		rm -fR /Library/Security/PolicyBanner.rtfd
-        if [ $NoUser == True ]; then
+        if [ "${UserLoggedIn}" == "False" ]; then
 			/Library/MacSD/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ Mojave.app --nointeraction --agreetolicense 
 		else
 			/Library/MacSD/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ Mojave.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
