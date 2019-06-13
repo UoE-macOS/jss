@@ -2,11 +2,11 @@
 
 ###################################################################
 #
-# Enable macOS re-install for macs not on 10.13
+# Enable macOS re-install for Macs not on 10.13
 #
-# Date: MThu  Tue 26 Feb 2019 16:05:00 GMT
-# Version: 0.1.2
-# Creator: dsavage
+# Date: Thu 13 Jun 2019 14:33:58 BST
+# Version: 0.1.3
+# Creator: ganders1
 #
 ##################################################################
 
@@ -78,11 +78,15 @@ if [ $macOS_app_vers -ge 134 ]; then
 	echo "first test macOS 13.4 or newer present"
 	# Check if we already have a copy of the installer
 	if [ $macOS_loc_vers -ge 134 ]; then
+    
     	echo "Second test local MacSD macOS 13.4 or newer present"
         # Copy the installer to our folder so we can retain it for future use
 		ditto "/Applications/Install macOS High Sierra.app" "/Library/MacSD/Install macOS High Sierra.app"
         # delete the login banner as we are updating macOS
 		rm -fR /Library/Security/PolicyBanner.rtfd
+        # Create the upgrade flag to ensure a recon after the upgrade.
+		touch /Library/MacSD/SUDONE
+
         if [ $NoUser == True ]; then
 			/Library/MacSD/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense 
 		else
@@ -97,7 +101,10 @@ if [ $macOS_app_vers -ge 134 ]; then
 		# Copy the installer to our folder so we can retain it for future use
 		ditto "/Applications/Install macOS High Sierra.app" "/Library/MacSD/Install macOS High Sierra.app"
         # delete the login banner as we are updating macOS
-		rm -fR /Library/Security/PolicyBanner.rtfd
+		rm -fR /Library/Security/PolicyBanner.rtfd        
+        # Create the upgrade flag to ensure a recon after the upgrade.
+		touch /Library/MacSD/SUDONE
+        
         if [ $NoUser == True ]; then
 			/Library/MacSD/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Library/MacSD/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense 
 		else
