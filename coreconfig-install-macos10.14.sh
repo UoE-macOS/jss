@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Thu  6 Jun 2019 15:52:10 BST
-# Version: 0.1.2
+# Date: Thu 13 Jun 2019 14:33:58 BST
+# Version: 0.1.3
 # Creator: ganders1
 #
 ##################################################################
@@ -80,6 +80,9 @@ fi
 
 # remove the receipt for the policy banner, so it gets re-installed.
 rm -f /Library/Application\ Support/JAMF/Receipts/SavingPolicyBanner*
+
+# Create the upgrade flag to ensure a recon after the upgrade.
+touch /Library/MacSD/SUDONE
 
 if [ $macOS_app_vers -ge 140 ]; then
 	echo "first test macOS 14.0 or newer present"
