@@ -6,10 +6,10 @@
 # if filevault is currently disabled and the user logging
 # in is a valid user in our directory service.
 #
-# Date: Thu 30 May 2019 14:12:40 BST
-# Version: 0.1.7
+# Date: Thu 13 Jun 2019 11:11:46 BST
+# Version: 0.1.8
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: dsavage
+# Released by JSS User: ganders1
 #
 ##################################################################
 
@@ -30,7 +30,7 @@ filevault_is_enabled() {
   [ $? == 0 ]
 }
 
-if pgrep -f "/usr/local/bin/jamf enroll" >/dev/null 2>&1 ; then
+if pgrep -f "/usr/local/jamf/bin/jamf policy -event enrollmentComplete" >/dev/null 2>&1 ; then
 	echo "QuickAdd package is running, exiting this FileVault check"
     exit 0;
 fi
