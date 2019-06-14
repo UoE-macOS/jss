@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Thu 13 Jun 2019 14:33:58 BST
-# Version: 0.1.3
+# Date: Thu 14 Jun 2019 16:50:58 BST
+# Version: 0.1.4
 # Creator: ganders1
 #
 ##################################################################
@@ -81,6 +81,9 @@ if [ $macOS_app_vers -ge 144 ]; then
     # delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd
     
+    #For Labs, remove receipt for the login banner so it gets put back after upgrade.
+    rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
+    
      # Create the upgrade flag to ensure a recon after the upgrade.
 	touch /Library/MacSD/SUDONE
     
@@ -101,6 +104,9 @@ else
     
     # Delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd      
+
+    #For Labs, remove receipt for the login banner so it gets put back after upgrade.
+    rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
     
     # Create the upgrade flag to ensure a recon after the upgrade.
 	touch /Library/MacSD/SUDONE   
