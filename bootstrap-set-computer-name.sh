@@ -11,8 +11,8 @@
 # then the name will be based on the school code of the user
 # who is currently logged in, combined with the computer serial number.
 #
-# Date: "Tue  5 Jun 2018 10:47:32 BST"
-# Version: 0.1.7
+# Date: "Fri 21 Jun 2019 15:40:02 BST"
+# Version: 0.1.8
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -42,13 +42,17 @@ main() {
   case $mobility in
     mobile)
       name=${school}-$(get_serial)
+      if [ "${school}" == "Unknown" ]; then
+        name=$(get_support)-$(get_serial)
+      fi
       echo $name Laptop
     ;;
     desktop)
       name=$(get_edlan_dnsname)
-      # If we don't get a name for some reason
-      # then just use the same scheme as for
-      # laptops.
+      # If we don't get a name for some reason, first try a dig.
+      ip_address=`ipconfig getifaddr en0`
+      name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
+      # Then just use the same scheme as for laptops.
       
       [ -z ${name} ] && name=${school}-$(get_serial)
       
@@ -66,8 +70,9 @@ main() {
   /usr/sbin/scutil --set HostName "${name}"
 
   # Check name is right
+  counter=0
   livename=`/usr/sbin/scutil --get ComputerName`
-  until [ $livename == $name ]; do
+  until [ ${livename} == ${name} ]; do
     /usr/sbin/scutil --set LocalHostName "${name}"
     /usr/sbin/scutil --set ComputerName "${name}"
     /usr/sbin/scutil --set HostName "${name}"
@@ -75,6 +80,10 @@ main() {
     defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "${name}"
     sleep 2
     livename=`/usr/sbin/scutil --get ComputerName`
+    	if [ "$counter" -gt 4 ]; then
+    		echo "Breaking loop and failing out as we cannot set the computer name"
+			exit 0;
+		fi
   done
 
   dscacheutil -flushcache
@@ -140,8 +149,10 @@ get_macaddr() {
 get_edlan_dnsname() {
   mac=$(get_macaddr)
   if ! [ -z ${mac} ]; then
-     #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
-     dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) # This won't work with 10.13, pending edlan changes.
+     if [ -z ${dnsfull} ]; then
+        dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     fi
      # Remove anything potentially dodgy 
      dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
      # Needs to go to STDERR to avoid passing back bad values.
