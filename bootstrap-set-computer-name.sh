@@ -72,7 +72,7 @@ main() {
   # Check name is right
   counter=0
   livename=`/usr/sbin/scutil --get ComputerName`
-  until [ ${livename} == ${name} ]; do
+  until [ "${livename}" == "${name}" ]; do
     /usr/sbin/scutil --set LocalHostName "${name}"
     /usr/sbin/scutil --set ComputerName "${name}"
     /usr/sbin/scutil --set HostName "${name}"
@@ -80,7 +80,8 @@ main() {
     defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "${name}"
     sleep 2
     livename=`/usr/sbin/scutil --get ComputerName`
-    	if [ "$counter" -gt 4 ]; then
+    ((counter++))
+    	if [ $counter -gt 4 ]; then
     		echo "Breaking loop and failing out as we cannot set the computer name"
 			exit 0;
 		fi
