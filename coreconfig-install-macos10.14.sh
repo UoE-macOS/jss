@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Thu 14 Jun 2019 16:50:58 BST
-# Version: 0.1.4
+# Date: Thu  1 Aug 2019 13:41:27 BST
+# Version: 0.1.5
 # Creator: ganders1
 #
 ##################################################################
@@ -65,7 +65,7 @@ fi
 # Launch jamfHelper
 
 if [ $NoUser == False ]; then
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType fs -title "" -icon "$icon" -heading "$heading" -description "$description" &
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -title "" -icon "$icon" -heading "$heading" -description "$description" &
 jamfHelperPID=$(echo $!)
 fi
 
