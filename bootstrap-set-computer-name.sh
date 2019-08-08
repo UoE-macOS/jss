@@ -50,10 +50,13 @@ main() {
     desktop)
       name=$(get_edlan_dnsname)
       # If we don't get a name for some reason, first try a dig.
-      ip_address=`ipconfig getifaddr en0`
-      name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
+      if [ -z ${name} ]; then
+      	echo "*** Performing a dig to find DNS name, edlan lookup unsuccessful ***"
+      	ip_address=`ipconfig getifaddr en0`
+      	name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
+      fi
       # Then just use the same scheme as for laptops.
-      
+      echo "*** Failed to find DNS name from edlan or dig lookup ***"
       [ -z ${name} ] && name=${school}-$(get_serial)
       
       echo $name Desktop
