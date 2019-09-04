@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
   
 # This script can be used to manually add a network route.
 # The script runs the command:
@@ -28,7 +28,7 @@ count=0
 while [[ $count -lt ${TIMEOUT} ]]
 do
     addr="$(ifconfig en1 inet | awk '$1 == "inet" {print $2}')"
-    if [ ! -z "${addr}" ]
+    if [ -n "${addr}" ]
     then
         break
     else
@@ -43,8 +43,7 @@ then
     echo "Timed out."
     exit 1
 else
-    route -n add -net "${network}" -interface "${interface}"
-    if [ $? -eq 0 ]
+    if route -n add -net "${network}" -interface "${interface}"
     then
         echo "Added route"
     else
