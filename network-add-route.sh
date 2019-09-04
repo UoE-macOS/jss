@@ -40,7 +40,7 @@ done
 
 if [[ $count -eq 10 ]]
 then
-        echo "Timed out."
+    echo "Timed out."
     exit 1
 else
     route -n add -net "${network}" -interface "${interface}"
