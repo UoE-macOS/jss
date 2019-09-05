@@ -27,7 +27,7 @@ count=0
 
 while [[ $count -lt ${TIMEOUT} ]]
 do
-    addr="$(ifconfig en1 inet | awk '$1 == "inet" {print $2}')"
+    addr="$(ifconfig "${interface}" inet | awk '$1 == "inet" {print $2}')"
     if [ -n "${addr}" ]
     then
         break
@@ -38,7 +38,7 @@ do
     fi
 done
 
-if [[ $count -eq 10 ]]
+if [[ $count -eq ${TIMEOUT} ]]
 then
     echo "Timed out."
     exit 1
