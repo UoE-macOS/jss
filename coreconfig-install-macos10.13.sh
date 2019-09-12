@@ -4,9 +4,9 @@
 #
 # Enable macOS re-install for Macs not on 10.13
 #
-# Date: Thu 1 Aug 2019 13:42:58 BST
+# Date: Thu 12 Sep 2019 16:20:20 BST
 # Version: 0.1.5
-# Creator: ganders1
+# Creator: dsavage
 #
 ##################################################################
 
@@ -24,7 +24,9 @@ exit 0
 fi
 
 # Check if free space > 15GB
-freeSpace=$( /usr/sbin/diskutil info / | grep "Free Space" | awk '{print $4}' )
+# Check if free space > 15GB
+bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
+freeSpace=`df -g | grep "${Boot_Disk}" | awk '{print $4}'`
 if [[ ${freeSpace%.*} -ge 15 ]]; then
     spaceStatus="OK"
     /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
@@ -44,15 +46,15 @@ sleep 2
 
 ##Heading to be used for jamfHelper
 
-heading="Please wait as we prepare your computer for macOS High Sierra..."
+heading='           Preparing for macOS install           '
 
-##Title to be used for jamfHelper
+# Title to be used for jamfHelper
 
-description="
+description='Please wait as we prepare your computer for macOS High Sierra...
 
 This process will take approximately 10-15 minutes.
 
-Once completed your computer will reboot and begin the install."
+Once completed your computer will reboot and begin the install.'
 
 ##Icon to be used for jamfHelper
 if [ -f /Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/InstallAssistant.icns ]; then
@@ -63,7 +65,7 @@ fi
 
 ##Launch jamfHelper
 if [ $NoUser == False ]; then
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -title "" -icon "$icon" -heading "$heading" -description "$description" &
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -title "" -icon "$icon" -heading "$heading" -description "$description" &
 jamfHelperPID=$(echo $!)
 fi
 
@@ -74,7 +76,7 @@ if [ -z $macOS_app_vers ]; then
 	macOS_app_vers=126
 fi
 
-if [ $macOS_app_vers -ge 134 ]; then
+if [ $macOS_app_vers -ge 136 ]; then
 
     # delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd
