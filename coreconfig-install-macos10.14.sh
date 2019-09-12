@@ -4,9 +4,9 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Thu  1 Aug 2019 13:41:27 BST
-# Version: 0.1.5
-# Creator: ganders1
+# Date: Thu 12 Sep 2019 16:20:20 BST
+# Version: 0.1.7
+# Creator: dsavage
 #
 ##################################################################
 
@@ -24,7 +24,8 @@ exit 0
 fi
 
 # Check if free space > 15GB
-freeSpace=$( /usr/sbin/diskutil info / | grep "Free Space" | awk '{print $4}' )
+bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
+freeSpace=`df -g | grep "${Boot_Disk}" | awk '{print $4}'`
 if [[ ${freeSpace%.*} -ge 15 ]]; then
     spaceStatus="OK"
     /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
@@ -45,15 +46,15 @@ sleep 2
 
 # Heading to be used for jamfHelper
 
-heading="Please wait as we prepare your computer for macOS Mojave..."
+heading='           Preparing for macOS install           '
 
 # Title to be used for jamfHelper
 
-description="
+description='Please wait as we prepare your computer for macOS Mojave...
 
 This process will take approximately 10-15 minutes.
 
-Once completed your computer will reboot and begin the install."
+Once completed your computer will reboot and begin the install.'
 
 # Icon to be used for jamfHelper
 if [ -f /Applications/Install\ macOS\ Mojave.app/Contents/Resources/InstallAssistant.icns ]; then
@@ -65,7 +66,7 @@ fi
 # Launch jamfHelper
 
 if [ $NoUser == False ]; then
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -title "" -icon "$icon" -heading "$heading" -description "$description" &
+/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -title "" -icon "$icon" -heading "$heading" -description "$description" &
 jamfHelperPID=$(echo $!)
 fi
 
@@ -76,7 +77,26 @@ if [ -z $macOS_app_vers ]; then
 	macOS_app_vers=126
 fi
 
-if [ $macOS_app_vers -ge 144 ]; then
+pkg_name="OSInstallRecon"
+version="0.1"
+resources="/Users/Shared/Res"
+
+mkdir ${resources}
+
+cat <<EOF > "${resources}/postinstall"
+#!/bin/bash
+echo "*** Perform post OS install recon ***"
+/usr/local/bin/jamf recon
+rm -f /Users/Shared/Res
+exit 0;
+EOF
+
+chmod +x "${resources}/postinstall"
+
+pkgbuild --nopayload --id ed.is.${pkg_name} --version ${version} --scripts "${resources}" "/Users/Shared/${pkg_name}-${version}.pkg"
+productbuild --identifier ed.is.${pkg_name}-${version} --package /Users/Shared/${pkg_name}-${version}.pkg /Users/Shared/dist-${pkg_name}-${version}.pkg
+
+if [ $macOS_app_vers -ge 145 ]; then
 
     # delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd
@@ -84,13 +104,10 @@ if [ $macOS_app_vers -ge 144 ]; then
     #For Labs, remove receipt for the login banner so it gets put back after upgrade.
     rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
     
-     # Create the upgrade flag to ensure a recon after the upgrade.
-	touch /Library/MacSD/SUDONE
-    
     if [ $NoUser == True ]; then
-		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ Mojave.app --nointeraction --agreetolicense 
+		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg
 	else
-        /Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ Mojave.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
+        /Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
     
@@ -108,13 +125,10 @@ else
     #For Labs, remove receipt for the login banner so it gets put back after upgrade.
     rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
     
-    # Create the upgrade flag to ensure a recon after the upgrade.
-	touch /Library/MacSD/SUDONE   
-    
     if [ $NoUser == True ]; then
-		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ Mojave.app --nointeraction --agreetolicense 
+		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg
 	else
-		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ Mojave.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
+		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
 fi
