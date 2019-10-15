@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.13
 #
-# Date: Thu 12 Sep 2019 16:20:20 BST
-# Version: 0.1.5
+# Date: Fri 11 Oct 2019 12:06:20 BST
+# Version: 0.1.6
 # Creator: dsavage
 #
 ##################################################################
@@ -26,7 +26,7 @@ fi
 # Check if free space > 15GB
 # Check if free space > 15GB
 bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
-freeSpace=`df -g | grep "${Boot_Disk}" | awk '{print $4}'`
+freeSpace=`df -g | grep "${bootDisk}" | awk '{print $4}'`
 if [[ ${freeSpace%.*} -ge 15 ]]; then
     spaceStatus="OK"
     /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
