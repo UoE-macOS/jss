@@ -4,9 +4,9 @@
 #
 # Enable macOS re-install for Macs not on 10.15 (Catalina)
 #
-# Date: Thu 12 Sep 2019 16:12:35 BST
-# Version: 0.1
-# Creator: ganders1
+# Date: Fri 11 Oct 2019 12:06:20 BST
+# Version: 0.1.1
+# Creator: dsavage
 #
 ##################################################################
 
@@ -25,7 +25,7 @@ fi
 
 # Check if free space > 15GB
 bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
-freeSpace=`df -g | grep "${Boot_Disk}" | awk '{print $4}'`
+freeSpace=`df -g | grep "${bootDisk}" | awk '{print $4}'`
 if [[ ${freeSpace%.*} -ge 15 ]]; then
     spaceStatus="OK"
     /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
