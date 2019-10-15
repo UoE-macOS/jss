@@ -81,9 +81,24 @@ echo $USERNAME >> "${LOGS}"/userToRemove
 /usr/sbin/dseditgroup -o edit -a $USERNAME -t user admin
 
 # notify
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Admin Rights Granted' -description "
-Please use responsibly. 
-All administrative activity is logged. 
-Access expires in 15 minutes." -button1 'OK' > /dev/null 2>&1 &
+# Get OS version
+OSVersion=`defaults read loginwindow SystemVersionStampAsString | awk -F "." '{print $2}' ` 
 
-exit 0
+if [ $OSVersion -le 14 ]; then
+
+    /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Admin Rights Granted' -description "
+    Please use responsibly. 
+    All administrative activity is logged. 
+    Access expires in 15 minutes." -button1 'OK' > /dev/null 2>&1 &
+    exit 0
+
+else
+
+    # Different path to system apps on 10.15+
+    /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType utility -icon /System/Applications/Utilities/Keychain\ Access.app/Contents/Resources/Keychain_Unlocked.png -heading 'Admin Rights Granted' -description "
+    Please use responsibly. 
+    All administrative activity is logged. 
+    Access expires in 15 minutes." -button1 'OK' > /dev/null 2>&1 &
+    exit 0
+
+fi
