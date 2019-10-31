@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Fri 11 Oct 2019 12:06:20 BST
-# Version: 0.1.6
+# Date: Thu 31 Oct 2019 13:56:34 GMT
+# Version: 0.1.7
 # Creator: dsavage
 #
 ##################################################################
@@ -21,6 +21,16 @@ if [ -e /macOS\ Install\ Data ]
 then
 # Install proces already underway
 exit 0
+fi
+
+osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
+if [ $osversion == "14" ]; then
+    # Delete the login banner and receipt as OS is already on the one we want.
+	rm -fR /Library/Security/PolicyBanner.rtfd      
+    rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
+    
+    # Do a recon
+    /usr/local/bin/jamf recon
 fi
 
 # Check if free space > 15GB
@@ -105,8 +115,10 @@ if [ $macOS_app_vers -ge 145 ]; then
     rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
     
     if [ $NoUser == True ]; then
+    	echo "No user present, starting osinstall"
 		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg
 	else
+    	echo "User present, starting osinstall"
         /Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
@@ -126,8 +138,10 @@ else
     rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
     
     if [ $NoUser == True ]; then
+    	echo "No user present, starting osinstall"
 		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg
 	else
+    	echo "User present, starting osinstall"
 		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
