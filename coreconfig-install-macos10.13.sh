@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.13
 #
-# Date: Fri 11 Oct 2019 12:06:20 BST
-# Version: 0.1.6
+# Date: Thu 31 Oct 2019 13:56:34 GMT
+# Version: 0.1.7
 # Creator: dsavage
 #
 ##################################################################
@@ -19,11 +19,20 @@
 
 if [ -e /macOS\ Install\ Data ]
 then
-# Install proces already underway
+# Install process already underway
 exit 0
 fi
 
-# Check if free space > 15GB
+osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
+if [ $osversion == "13" ]; then
+    # Delete the login banner and receipt as OS is already on the one we want.
+	rm -fR /Library/Security/PolicyBanner.rtfd      
+    rm -dfR "/Library/Application Support/JAMF/Receipts/SavingPolicyBanner*.pkg"
+    
+    # Do a recon
+    /usr/local/bin/jamf recon
+fi
+
 # Check if free space > 15GB
 bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
 freeSpace=`df -g | grep "${bootDisk}" | awk '{print $4}'`
@@ -87,8 +96,10 @@ if [ $macOS_app_vers -ge 136 ]; then
     # Create the upgrade flag to ensure a recon after the upgrade.
 	touch /Library/MacSD/SUDONE
     if [ $NoUser == True ]; then
+    	echo "No user present, starting osinstall"
 		/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense 
 	else
+    	echo "User present, starting osinstall"
         /Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
@@ -111,8 +122,10 @@ else
 	touch /Library/MacSD/SUDONE   
     
     if [ $NoUser == True ]; then
+    	echo "No user present, starting osinstall"
 		/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense 
 	else
+    	echo "User present, starting osinstall"
 		/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
 		osascript -e 'tell application "Self Service" to quit'
     fi
