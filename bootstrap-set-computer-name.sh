@@ -11,10 +11,10 @@
 # then the name will be based on the school code of the user
 # who is currently logged in, combined with the computer serial number.
 #
-# Date: "Fri 21 Jun 2019 15:40:02 BST"
-# Version: 0.1.8
+# Date: "Tue 14 Jan 2020 13:50:45 GMT"
+# Version: 0.1.9
 # Origin: https://github.com/UoE-macOS/jss.git
-# Released by JSS User: dsavage
+# Released by JSS User: ganders1
 #
 #######################################################################
 
@@ -55,10 +55,13 @@ main() {
       	ip_address=`ipconfig getifaddr en0`
       	name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
       fi
+
       # Then just use the same scheme as for laptops.
-      echo "*** Failed to find DNS name from edlan or dig lookup ***"
-      [ -z ${name} ] && name=${school}-$(get_serial)
-      
+      if [ -z ${name} ]; then
+      	echo "*** Failed to find DNS name from edlan or dig lookup ***"
+      	name=${school}-$(get_serial)
+      fi
+  
       echo $name Desktop
     ;;
     *)
@@ -206,6 +209,9 @@ econsupport)
 educsupport)
   Code="S29"
   ;;
+engsupport)
+  Code="S48"
+  ;;
 eusasupport )
   Code="P99"
   ;;
@@ -239,7 +245,7 @@ pplssupport)
 ppssupport)
   Code="P7F"
   ;;
-  sbsadmin)
+sbsadmin)
   Code="S42"
   ;;
 scecollsupport)
@@ -253,6 +259,9 @@ sspsitadmin)
   ;;
 srssupport)
   Code="P7K"
+  ;;
+uebs_support)
+  Code="S21"
   ;;
 *)
   Code="Unknown"
