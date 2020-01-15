@@ -1,613 +1,517 @@
 #!/bin/bash
 
-###################################################################
-#
-# Initial script run for Staff DEP enrolment machines.
-# 
-# The script will ask for the username of the primary user.
-# If the device is a desktop, a mobile account will be created for the primary user.
-# If the machine is a laptop it is named with a compbination of that user's school code
-# and the serial number.
-#
-# Finally the policy to install our core-applications is called.
-#
-##################################################################
-
-
 # Declare variables
+# LDAP
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
 LDAP_SCHOOL="eduniSchoolCode"
-LDAP_FULLNAME="cn"
-LDAP_UIDNUM="uidNumber"
 
-KRB_REALM='ED.AC.UK'
+# EdLAN DB location
 EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
 
-LOCK_FILE="/var/run/UoEQuickAddRunning"
+# Lock file location. DO NOT CHANGE THIS! Other processes and policies specifically check for this file.
+LOCK_FILE="/var/run/UoEDEPRunning"
 
-JSS_URL="$(defaults read /Library/Preferences/com.jamfsoftware.jamf.plist jss_url)"
+# Jamf binary location
+JAMF_BINARY=/usr/local/jamf/bin/jamf
 
-# Create log file
-logFile="/Library/Logs/jamf-enrolment.log"
-              
-# Check to see if logfile exists. If so delete
-if [ -f "$logFile" ]
-then
-	rm -f $logFile
-fi
+# BOM file to indicate setup has completed
+SETUP_DONE="/var/db/receipts/is.ed.provisioning.done.bom"
 
-check_jss_available() {
-	# Can we see the JSS?
-	echo "Checking JSS availability for $JSS_URL" | timestamp 2>&1 | tee -a $logFile
-	curl -I ${JSS_URL} &> /dev/null
-  	jss_status=$?
+# DEP Notify log location
+DEP_NOTIFY_LOG="/Library/Logs/depnotify.log"
 
-	if [ ${jss_status} -ne 0 ]
-  	then
-    	echo "Can't contact JSS at ${JSS_URL}" | timestamp 2>&1 | tee -a $logFile
-    	echo "Error status was: ${jss_status}" | tee -a $logFile
-    	echo "Please contact support" | tee -a $logFile
-    	exit 1
-  	else
-    	true
-  	fi
-} 
+# Log file location
+LOGFILE="/Library/Logs/jamf-enrolment.log"
 
-get_fullname() {
-	#echo "Looking for user fullname..." | timestamp 2>&1 | tee -a $logFile
-   	full_name=$(ldapsearch -x -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
-        -s sub "(uid=${1})" "${LDAP_FULLNAME}" | awk -F ': ' '/^'"${LDAP_FULLNAME}"'/ {print $2}')
-   	echo "${full_name}"
-}
+# DEP Notify variables
+# Registration bom file    
+DEP_NOTIFY_REGISTER_DONE="/var/tmp/com.depnotify.registration.done"
 
-get_uid_num() {
-   	#echo "Looking for user id number" | timestamp 2>&1 | tee -a $logFile
-   	uid_num=$(ldapsearch -x -H "${LDAP_SERVER}" -b "${LDAP_BASE}"\
-        -s sub "(uid=${1})" "${LDAP_UIDNUM}" | awk -F ': ' '/^'"${LDAP_UIDNUM}"'/ {print $2}')
-   	echo "${uid_num}"
-}
+# Main DEP Notify image and message    
+DEP_NOTIFY_IMAGE="/usr/local/jamf/UoELogo.png"
+DEP_NOTIFY_MAIN_TITLE="UoE macOS Supported Desktop Installation"
+DEP_NOTIFY_MAIN_TEXT="Your computer is now being set up with the University of Edinburgh Supported macOS build.\n\nPlease do not interrupt this process.\n\nThis process may take some time. Please be patient."
+    
+# DEPNotify Help bubble settings
+HELP_BUBBLE_TITLE="Need Help?"
+HELP_BUBBLE_BODY="Please contact IS Helpline on \n\n0131 651 51 51\n\nor visit\n\nhttps://edin.ac/helpline"
 
-## Who is going to be using this machine?
-get_username() {  
-  	uun=$(osascript -e 'tell application "Finder"
-      activate
-      with timeout of 36000 seconds
-        set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer.\n\nAn account will be created on this computer if it does not exist:"¬
-        with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
-        buttons {"OK"} default button {"OK"})
-      end timeout
-  	end tell
-  	return uun'
-	)
+# DEPNotify warning sign    
+DEP_NOTIFY_ERROR="/usr/local/jamf/warning.png"
 
-	until $(valid_username ${uun})
-	do
-  		get_username
-	done
-  	echo ${uun}
-}
+# DEPNotify setup complete image
+DEP_NOTIFY_COMPLETE_IMAGE="/usr/local/jamf/tick.png"
 
+# DEPNotify error messages for Desktops and laptops
+DEP_NOTIFY_DESKTOP_ERROR="Setup is unable to find an EdLAN DB registration for this device.\n\nSetup will continue in approximately 1 minute however it will use the same naming convention as laptops until resolved.\nOnce built, you should be able to resolve this using the Set-Desktop-Name JAMF event trigger.\n\nThe computer will also need to be bound to Active Directory by running the JAMF event trigger Bind-AD after the hostname has been correctly set.\n\nPlease contact IS Helpline if you require any more assistance."
 
-valid_username() {
-  	# Determine validity of a username by checking whether we can find the school code.
-  	uun=${1}  
-  	[ ! -z "$(get_school ${1})" ]
-}
-  
-got_krb_tgt() {
-  	# Get a kerberos TGT
-  	# Avoid passing a password on the commandline
-  	# Use printf to avoid the shell interpreting any special chars
-  	uun="${1}"
-  	pwd="${2}"
+# Jamf helper location
+JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 
-  	printf '%s' "${pwd}" | kinit --password-file=STDIN "${uun}@${KRB_REALM}"
-}
+# Create a global variable to hold value of valid uun
+USERNAME=""
 
-health_check() {
-	# Display a message in the background...
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- 	-windowType utility\
- 	-title 'UoE Mac Supported Desktop'\
- 	-heading 'System Health Check'\
- 	-icon '/Applications/Utilities/Disk Utility.app/Contents/Resources/AppIcon.icns'\
- 	-timeout 99999\
- 	-description "$(echo -e We are verifying your disk and clearing caches.\\n\\nThis will take several minutes.\\nPlease do not restart your computer)" &
-	/usr/local/bin/jamf policy -event Health-Check
-	killall jamfHelper
-}
-
-bind_ad() {
-	/usr/local/bin/jamf policy -event Bind-AD
-}
-
-trigger_core_apps() {
-
-	# Display this message but send the jamfhelper process into the background
-	# so that execution continues
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- 	-windowType utility\
- 	-title 'UoE Mac Supported Desktop'\
- 	-heading 'Checking Core Applications'\
- 	-icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- 	-timeout 99999\
- 	-description "$(echo -e We are ensuring that your core applications are installed and up-to-date.\\n\\nThis will take several minutes.\\n\\nPlease do not restart your computer.)" &
-	/usr/local/bin/jamf policy -event Core-Apps
-	killall jamfHelper
-}
-
-trigger_software_update() {
-	# Display this message but send the jamfhelper process into the background
-	# so that execution continues
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- 	-windowType utility\
- 	-title 'UoE Mac Supported Desktop'\
- 	-heading 'Checking Software Update'\
- 	-icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- 	-timeout 99999\
- 	-description "$(echo -e We are ensuring that your Operating System is up-to-date.\\n\\nThis will take several minutes.\\n\\nPlease do not restart your computer.)" &
-	/usr/local/bin/jamf policy -event runsoftwareupdate
-	killall jamfHelper
-}
-
-trigger_os_installer() {
-	# Display this message but send the jamfhelper process into the background
-	# so that execution continues
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- 	-windowType utility\
- 	-title 'UoE Mac Supported Desktop'\
- 	-heading 'Checking Core Applications'\
- 	-icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- 	-timeout 99999\
- 	-description "$(echo -e We are now putting the new macOS installer in-place.\\n\\nThis should take 20 to 30 minutes.\\n\\nYou will be able to launch the upgrade from Self Service once this installation is complete.\\n\\nPlease do not restart your computer.)" &
-	/usr/local/bin/jamf policy -event OS-Installer
-	killall jamfHelper
-
-}
-
-do_restart () {
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
-  	-windowType utility\
-  	-title 'UoE Mac Supported Desktop'\
-  	-heading 'Please restart'\
-  	-icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
-  	-description "$(echo -e Core installation complete.\\n\\nPlease restart and log in as ${uun} to complete the setup.)"\
-  	-timeout 99999\
-  	-button1 'Restart'
-
- 	# We are done - delete our lock file
-	rm "${LOCK_FILE}"
-	# We didn't give the user a choice, so restart in 1 minute. Gives us time to make sure processes are killed
-	shutdown -r +1 &
-
- 	# Kill all running non jamf processes
- 	declare -a killPIDs
- 	killPIDs=$(ps axww -o pid,command | grep -v bash | grep [A]pplications/ | grep -v /bin/sh | grep -v [J]amf | grep -v [S]elf\ Service | grep -v grep | awk '{print $1}')
- 	for i in ${killPIDs[@]}
- 	do
-    	echo "Killing PID $i"
-    	kill -9 $i
- 	done
-
-	# Just incase anything above was missed
-osascript <<EOF
-tell application "System Events"
-	set listOfProcesses to (name of every process where background only is false)
-end tell
-repeat with processName in listOfProcesses
-	do shell script "Killall " & quoted form of processName	
-end repeat
-EOF
-
-}
-
-get_mobility() {
-  	product_name=$(ioreg -l | awk '/product-name/ { split($0, line, "\""); printf("%s\n", line[4]); }')
-  	if echo "${product_name}" | grep -qi "macbook" 
-  	then
-    	mobility=mobile
-  	else
-    	mobility=desktop
-  	fi 
-  	echo ${mobility}  
-}
-
-get_serial() {
-  	# Full serial is a bit long, use the last 8 chars instead.
-  	serial_no=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
-  	echo ${serial_no}
-}
-
-get_school() {
-  	uun=${1}
-  	school_code=$(ldapsearch -x -H "${LDAP_SERVER}" -b"${LDAP_BASE}" -s sub "(uid=${uun})" "${LDAP_SCHOOL}" | awk -F ': ' '/^'"${LDAP_SCHOOL}"'/ {print $2}')
-  	# Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
-  	[ -z "${school_code}" ] && school_code="Unknown"
-  	echo ${school_code}
-}
-
-get_macaddr() {
-  	active_adapter=`route get ed.ac.uk | grep interface | awk '{print $2}'`
-  	macaddr=$(ifconfig $active_adapter ether | awk '/ether/ {print $NF}')
-  	echo "MAC Address: ${macaddr}."
-  	echo ${macaddr}
-}
-
-get_edlan_dnsname() {
-  	mac=$(get_macaddr)
-  	if ! [ -z ${mac} ]; then
-    	dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) # This won't work with 10.13, pending edlan changes.
-   		if [ -z ${dnsfull} ]; then
-        	dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
-    	fi
-    	# Remove anything potentially dodgy 
-    	dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
-    	echo ${dnsname}
-  	fi  
-}
-
-set_computer_name() {
-	uun="${1}"
-  	echo "UUN to set computer name is ${uun}" | timestamp 2>&1 | tee -a $logFile
-  	mobility=$(get_mobility)
-  	school="$(get_school ${uun})"
-  	echo "SCHOOL CODE FOR ${uun} is ${school}" | timestamp 2>&1 | tee -a $logFile
-  	case $mobility in
-    	mobile)
-      		name=${school}-$(get_serial)
-    	;;
-    	desktop)
-      		name=$(get_edlan_dnsname)
-      	# If we don't get a name for some reason, first try a dig.
-      	if [ -z ${name} ]; then
-      		echo "*** Performing a dig to find DNS name, edlan lookup unsuccessful ***"
-      		ip_address=`ipconfig getifaddr en0`
-      		name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
-      	fi
-      	# Then just use the same scheme as for laptops.
-      	echo "*** Failed to find DNS name from edlan or dig lookup ***"
-      	[ -z ${name} ] && name=${school}-$(get_serial)
-    	;;
-    	*)
-  			name=${school}-"Unknown"
-    	;;
-  	esac
-  	echo "NAME IS ${name}" | timestamp 2>&1 | tee -a $logFile
-  	/usr/sbin/scutil --set LocalHostName "${name}"
-  	/usr/sbin/scutil --set ComputerName "${name}"
-  	/usr/sbin/scutil --set HostName "${name}"
-  	# Make sure we have a good hostname
-  	compName=`/usr/sbin/scutil --get ComputerName`
-  	echo "Computer name is $compName" | timestamp 2>&1 | tee -a $logFile
-  	# If computer name contains the string "Unknown" then try and set again
-  	if [[ $compName = *Unknown* ]]
-  	then
-  		echo "Failed to set computer name. Running trigger to try again.." | timestamp 2>&1 | tee -a $logFile
-  		/usr/local/bin/jamf policy -event Set-Desktop-Name
-  		# Check again
-  		compName=`/usr/sbin/scutil --get ComputerName`
-  		echo "Computer name is $compName" | timestamp 2>&1 | tee -a $logFile
-  		if [[ $compName = *Unknown* ]]
-  		then
-  			echo $'Unable to set computer name. You can try running the trigger under an admin account after setup is complete :\nsudo jamf policy -event Set-Desktop-Name' | timestamp 2>&1 | tee -a $logFile
-  		fi
-  	else
-  		echo "Looks like we have a valid name. Moving on..." | timestamp 2>&1 | tee -a $logFile
-  	fi
-}
-
-has_local_account() {
-  	# Does a local account exist with ${uun}
-  	uun=${1}
-  	if acct=$(dscl . -list /Users | grep "^${uun}$")
-  	then
-    	echo "Local Account for ${uun} exists"
-    	true 
-  	else
-    	echo "Local Account for ${uun} does not exist"
-    	false
-  	fi
-}
-
-create_local_account() {
-  	echo "Creating local account for ${1}"
-  	uun="${1}"
-  	dscl . -create /Users/${uun}
-  	dscl . -create /Users/${uun} UserShell /bin/bash
-  	dscl . -create /Users/${uun} RealName "$(get_fullname ${uun})"
-  	dscl . -create /Users/${uun} UniqueID "$(get_uid_num ${uun})"
-  	dscl . -create /Users/${uun} PrimaryGroupID 20
-  	dscl . -create /Users/${uun} NFSHomeDirectory /Users/${uun}
-  	dscl . -passwd /Users/${uun} ${uun}
-  	# Create the home folder
-  	createhomedir -c -u $uun
-}
-
-create_mobile_account() {
-	echo "Creating mobile account for ${uun}" | timestamp 2>&1 | tee -a $logFile
-	uun="${1}"
-	if [ -z "${uun}" ] || [ "${uun}" == '' ]; then
-	    echo "Something went wrong, no username passed xx ${uun} xx" | timestamp 2>&1 | tee -a $logFile
-        return 255
-	else
-	    mkdir /Users/$uun
-	    chown -R $uun /Users/$uun
-	    /System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -v -n $uun
-	fi
-
-    create_check=`dscl . -read /Users/${uun} RecordName`
-    if [ "${create_check}" == "RecordName: ${uun}" ]; then
-        return 0
-    else
-        echo "Something went wrong, could not create mobile account xx ${uun} xx. Machine may not be bound to AD." | timestamp 2>&1 | tee -a $logFile
-        return 255
-    fi
-}
-                                        
 # Function for obtaining timestamp
 timestamp() {
     while read -r line
     do
-        timestamp=`date`
-        echo "[$timestamp] $line"
+        TIMESTAMP=`date`
+        echo "[$TIMESTAMP] $line"
     done
-}           
-              
-warn_no_user_account() {
-  	uun=${1}
-  	logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
-  	sudo -u ${logged_in_user} osascript << EOT
-   	tell application "Finder"
-    activate
-    display dialog "Warning - account creation failed for ${uun}\n\nOn a laptop you will need to create one manually. On a desktop, please check the AD bind."¬      
-    buttons {"OK"} default button {"OK"}      
-    end tell
-EOT
-  
 }
 
-success_message() {
-  	uun=${1}
-  	logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
-  	sudo -u ${logged_in_user} osascript << EOT
-    tell application "Finder"
-    activate
-    display dialog "An account has been created for ${uun}."¬
-    buttons {"OK"} default button {"OK"}           
-    end tell
-EOT
-  
-}
-
-success_message_existing_account() {
-  	uun=${1}
-  	logged_in_user=$( ls -l /dev/console | awk '{print $3}' )
-  	sudo -u ${logged_in_user} osascript << EOT
-    tell application "Finder"
-    activate
-    display dialog "We found an account for ${uun}.\n\nIt has not been altered in any way."¬
-    buttons {"OK"} default button {"OK"}           
-    end tell
-EOT
-  
-}
-
-remove-NoMADLoginAD(){
-	# Resetting the authorization database to stock
-	authchanger -reset 2> /dev/null
-	if [[ $? ]]; then
-    	echo "Authorization Database reset" | timestamp 2>&1 | tee -a $logFile
-	else
-    	echo "Error resetting the Authorization Database" | timestamp 2>&1 | tee -a $logFile
-    
-	fi
-
-	# Removing authchanger
-	rm -f /usr/local/bin/authchanger
-	if [[ $? ]]; then
-    	echo "Authchanger removed" | timestamp 2>&1 | tee -a $logFile
-	else
-    	echo "Error removing authchanger" | timestamp 2>&1 | tee -a $logFile
-	fi
-
-	# Cleaing out the NoMAD Login files
-	rm -rf /Library/Security/SecurityAgentPlugins/NoMADLoginAD.bundle
-	if [[ $? ]]; then
-    	echo "NoMAD Login AD Removed" | timestamp 2>&1 | tee -a $logFile
-	else
-    	echo "Error removing NoMAD Login AD" | timestamp 2>&1 | tee -a $logFile
-	fi
-
-	# Cleaning out computer level settings if they exist
-	if [ -f "/Library/Preferences/menu.nomad.login.ad.plist" ]; then
-    	rm -f /Library/Preferences/menu.nomad.login.ad.plist
-    	if [[ $? ]]; then
-        	echo "NoMAD Login AD Preferences Removed" | timestamp 2>&1 | tee -a $logFile
-    	else
-        	echo "Error removing NoMAD Login AD Preferences" | timestamp 2>&1 | tee -a $logFile
-    	fi
-	fi
-
-	# Checking if there is a configuration profile containing a NoMADLoginAD preference
-	if [ -f "/Library/Managed Preferences/menu.nomad.login.ad.plist" ]; then
-    	echo "WARNING: There is a configuration profile containing a NoMAD Login AD Preference. This must be removed seperately." | timestamp 2>&1 | tee -a $logFile
-	fi
-
-}
-              
-# Drop a lock file so that other processes know we are running
-echo "Dropping lock file at ${LOCK_FILE}..." | timestamp 2>&1 | tee -a $logFile
-touch "${LOCK_FILE}"
-              
-# Wait for Dock to appear so we know someone is logged in
-echo "Watiting for Dock to appear so we know someone is logged in..." | timestamp 2>&1 | tee -a $logFile
-dockStatus=$(pgrep -x Dock)
-while [ "$dockStatus" == "" ]; do
-	echo "Desktop is not loaded. Waiting..." | timestamp 2>&1 | tee -a $logFile
-  	sleep 2
-  	dockStatus=$(pgrep -x Dock)
-done
-echo "Desktop now loaded." | timestamp 2>&1 | tee -a $logFile
-              
-# Set Time zone
-echo "Setting Timezone to London..." | timestamp 2>&1 | tee -a $logFile
-/usr/sbin/systemsetup -settimezone "Europe/London"
-                
-# Attempt to enable Remote Desktop sharing
-/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -allowAccessFor -allUsers -privs -all -clientopts -setmenuextra -menuextra yes
-                          
-# Get the logged in username
-username=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
-echo "Logged in user is $username." | timestamp 2>&1 | tee -a $logFile
-
-# What OS is running?
-osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
-echo "Operating System is $osversion." | timestamp 2>&1 | tee -a $logFile
-
-# Get user type
-echo "Obtaining user type..." | timestamp 2>&1 | tee -a $logFile
-usertype=""
-	mobility=$(get_mobility)
-  	case $mobility in
-    	mobile)
-  	  		# If it's a laptop, set user type to local
-  	  		echo "Is a laptop, so user type will be a local account..." | timestamp 2>&1 | tee -a $logFile
-      		usertype=Local
-    	;;
-    	desktop)
-  	  		# If it's a desktop, set user type to mobile
-  	  		echo "Is a desktop, so user type will be a mobile account..." | timestamp 2>&1 | tee -a $logFile
-	  		usertype=Mobile
-  	  		# If it's a Desktop, switch off Wifi
-  	  		networksetup -setairportpower $(networksetup -listallhardwareports | awk '/AirPort|Wi-Fi/{getline; print $NF}') off
-    	;;
-  	esac 
-
-# Asking for primary user
-echo "Requesting primary username..." | timestamp 2>&1 | tee -a $logFile
-uun=$(get_username)
-
-# If a valid school code is found, send it to log
-if ! [ "$(get_school ${uun})" == "Unknown" ] || ! [ -z "$(get_school ${uun})" ]
-then
-	echo "School code for ${uun} is $(get_school ${uun})" | timestamp 2>&1 | tee -a $logFile
-# Else, find out if it's a laptop. If so, send a message explaining that the device will not pick up an appropriate name
-else
-  	if [ "$usertype" == "Local" ]
+# Get model of device
+get_mobility() {
+  	PRODUCT_NAME=$(ioreg -l | awk '/product-name/ { split($0, line, "\""); printf("%s\n", line[4]); }')
+  	if echo "${PRODUCT_NAME}" | grep -qi "macbook" 
   	then
-	osascript -e 'display dialog "WARNING! Unable to find school code for the primary username supplied.\n\nSetup will continue however this device will not set a computer name at this time.\n\nYou can attempt to resolve this at the end of setup by opening a terminal and running the following jamf custom trigger:\n\nsudo jamf policy -event Set-Desktop-Name\n\nCheck the following log for more details :\n\n/Library/Logs/jamf-enrolment.log"¬
-        with title "University of Edinburgh Mac Supported Desktop" with icon 2 ¬
-        buttons {"OK"} default button {"OK"}'
-  	echo "Unable to find a valid school code for ${uun}. School code is $(get_school ${uun}).Will carry on anyway.." | timestamp 2>&1 | tee -a $logFile
+    	MOBILITY=mobile
   	else
-  		echo "Looks to be a desktop, should pick it's name up from EdLAN DB. Moving on..." | timestamp 2>&1 | tee -a $logFile
- 	fi
-fi
+    	MOBILITY=desktop
+  	fi 
+  	echo ${MOBILITY}  
+}
 
-# Set the computers name
-echo "Setting computer name..." | timestamp 2>&1 | tee -a $logFile 
-set_computer_name ${uun}
+# Get serial number
+get_serial() {
+  	# Full serial is a bit long, use the last 8 chars instead.
+  	SERIAL_NO=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
+  	echo ${SERIAL_NO}
+}
 
-# Check whether School/dept's local admin account exists and, if not, create it
-echo "Checking if local admin account exists and creating if not..." | timestamp 2>&1 | tee -a $logFile
-/usr/local/bin/jamf policy -event Check-Local-Admin
-  
-if ! $(has_local_account ${uun})
-then
-	if [ $usertype == "Mobile" ]; then
-  		echo "Attempting to bind machine to AD..." | timestamp 2>&1 | tee -a $logFile 
-  		bind_ad
-  		create_mobile_account ${uun}
-  	elif [ $usertype == "Local" ] || [ -z $usertype ]; then
-  		echo "Creating local account..." | timestamp 2>&1 | tee -a $logFile 
-  		create_local_account ${uun}
-  	fi
-  	if [ ${?} != 0 ]; then
-    	warn_no_user_account ${uun}
-  		echo "Can't find an account for ${uun}" | timestamp 2>&1 | tee -a $logFile    
-  	else
-    	success_message ${uun}
-  		echo "Account ${uun} created." | timestamp 2>&1 | tee -a $logFile 
+# Get associated school code
+get_school() {
+  	UUN=${1}
+  	SCHOOL_CODE=$(ldapsearch -x -H "${LDAP_SERVER}" -b"${LDAP_BASE}" -s sub "(uid=${UUN})" "${LDAP_SCHOOL}" | awk -F ': ' '/^'"${LDAP_SCHOOL}"'/ {print $2}')
+  	# Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
+  	[ -z "${SCHOOL_CODE}" ] && SCHOOL_CODE="Unknown"
+  	echo ${SCHOOL_CODE}
+}
+
+# Get mac address
+get_macaddr() {
+  	ACTIVE_ADAPTER=`route get ed.ac.uk | grep interface | awk '{print $2}'`
+  	MAC_ADDRESS=$(ifconfig $ACTIVE_ADAPTER ether | awk '/ether/ {print $NF}')
+  	echo "MAC Address: ${MAC_ADDRESS}."
+  	echo ${MAC_ADDRESS}
+}
+
+# Get DNS name form EdLAN DB
+get_edlan_dnsname() {
+  	MAC=$(get_macaddr)
+  	if ! [ -z ${MAC} ]; then
+    	DNSFULL=$(curl --insecure "${EDLAN_DB}?MAC=${MAC}&return=DNS" 2>/dev/null) # This won't work with 10.13, pending edlan changes.
+   		if [ -z ${DNSFULL} ]; then
+        	DNSFULL=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${MAC}&return=DNS', context=ssl._create_unverified_context()).read()"`
+    	fi
+    	# Remove anything potentially dodgy 
+    	DNS_NAME=`echo ${DNSFULL} | awk -F "." '{print $1}'`
+    	echo ${DNS_NAME}
   	fi  
-else
-  	success_message_existing_account ${uun}
-  	echo "Account ${uun} already exists. Moving on..." | timestamp 2>&1 | tee -a $logFile
+}
+
+# Set the copmuter name
+set_computer_name() {
+	NAME="${1}"
+  	/usr/sbin/scutil --set LocalHostName "${NAME}"
+    /usr/sbin/scutil --set ComputerName "${NAME}"
+    /usr/sbin/scutil --set HostName "${NAME}"
+}
+
+set_desktop_name(){
+    NAME="${1}"
+    echo "Obtained computer name is $NAME" | timestamp 2>&1 | tee -a $LOGFILE
+    echo "Setting local computer name..." | timestamp 2>&1 | tee -a $LOGFILE
+    set_computer_name ${NAME}
+    echo "Attempting to bind to UoE domain..." | timestamp 2>&1 | tee -a $LOGFILE
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    echo "Status: Binding computer to UoE domain..." >> $DEP_NOTIFY_LOG
+    $JAMF_BINARY policy -event Bind-AD 
+}
+
+# Function to return whether local account exists or not
+has_local_account() {
+  	# Does a local account exist with ${uun}
+  	UUN=${1}
+  	if ACCT=$(dscl . -list /Users | grep "^${UUN}$")
+  	then
+    	echo "Local Account for ${UUN} exists"
+    	true 
+  	else
+    	echo "Local Account for ${UUN} does not exist"
+    	false
+  	fi
+}
+
+# Validate username
+validate_username() {
+    # Determine validity of a username by checking whether we can find the school code.
+  	uun=${1}  
+  	[ ! -z "$(get_school ${1})" ]
+}
+
+get_username() {
+  	uun=$(osascript -e 'tell application "Finder"
+      activate
+        set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer:\n"¬
+        with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
+        buttons {"OK"} default button {"OK"})
+  	end tell
+  	return uun'
+	)
+	
+	until [ $(get_school ${uun}) != "Unknown" ] && [ $(get_school ${uun}) != "" ]
+	do
+		MESSAGE="The setup detected an error due to not being able to find a valid school code for University Login username $uun.
+        
+This process cannot continue without a valid University Login username.
+
+Select the button below to re-enter.
+
+If any help is required please contact the IS Helpline - https://edin.ac/helpline
+
+"
+		"$JAMF_HELPER" -windowType utility \
+								-title "WARNING!" \
+								-heading "INVALID UNIVERSITY LOGIN USERNAME!" \
+								-icon "$DEP_NOTIFY_ERROR" \
+								-description "$MESSAGE" \
+								-button1 "Retry"		
+        get_username		
+	done
+  	echo ${uun}
+}
+  	
+dep_notify_status(){
+    STATUS="${1}"
+    echo "${STATUS}" | timestamp 2>&1 | tee -a $LOGFILE
+    echo "Status: ${STATUS}" >> $DEP_NOTIFY_LOG   
+}
+
+dep_notify_error(){
+    MAIN_TITLE="${1}"
+    MAIN_TEXT="${2}"
+    STATUS="${3}"
+    echo "Command: MainTitle: $MAIN_TITLE" >> $DEP_NOTIFY_LOG
+    echo "Command: MainText: $MAIN_TEXT" >> $DEP_NOTIFY_LOG
+    echo "Command: Image: $DEP_NOTIFY_ERROR" >> $DEP_NOTIFY_LOG
+    echo "Status: $STATUS" >> $DEP_NOTIFY_LOG
+    sleep 60
+}
+
+dep_notify_main_message(){
+    echo "Command: MainTitle: $DEP_NOTIFY_MAIN_TITLE" >> $DEP_NOTIFY_LOG
+    echo "Command: MainText: $DEP_NOTIFY_MAIN_TEXT" >> $DEP_NOTIFY_LOG    
+    echo "Command: Image: $DEP_NOTIFY_IMAGE" >> $DEP_NOTIFY_LOG    
+}
+
+# If the receipt is found, DEP already ran so let's remove this script and
+# the launch Daemon. This helps if someone re-enrolls a machine for some reason.
+if [ -f "${SETUP_DONE}" ]; then
+	# Remove the Launch Daemon
+	/bin/rm -Rf /Library/LaunchDaemons/is.ed.launch.plist
+	# Remove this script
+	/bin/rm -- "$0"
+	exit 0
 fi
 
-# Run recon to let the JSS know who the primary user of this machine will be
-echo "Running recon to update JSS with primary user ${uun}" | timestamp 2>&1 | tee -a $logFile 
-/usr/local/bin/jamf recon -endUsername ${uun}
-  
-# Run any policies that are triggered by the 'Core-Apps' event
-echo "Running policies triggered by Core-Apps trigger..." | timestamp 2>&1 | tee -a $logFile
-trigger_core_apps
+# Drop a lock file so that other processes know we are running
+echo "Dropping lock file at ${LOCK_FILE}..." | timestamp 2>&1 | tee -a $LOGFILE
+touch "${LOCK_FILE}" 
 
-# Check if free space > 15GB
-echo "Making sure more than 15 GB of free space on HD exists..." | timestamp 2>&1 | tee -a $logFile
-bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
-availableSpace=$(/usr/sbin/diskutil info ${bootDisk} | grep "Volume Free Space:" | awk '{print $4}')
-freespace=$(/bin/echo "($availableSpace+0.5)/1-1" | bc)
-echo "Free space is ${freespace}." | timestamp 2>&1 | tee -a $logFile
+# Get current logged in user
+CURRENT_USER=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+echo "Logged in user is $CURRENT_USER" | timestamp 2>&1 | tee -a $LOGFILE
 
-# Checking if OS installer is required
-echo "Checking if OS installer is required..." | timestamp 2>&1 | tee -a $logFile
-if [ $osversion == "12" ] || [ $osversion == "13" ] || [ $osversion == "14" ]; then
-	echo "OS installer already in-place or OS on version 12,13 or 14." | timestamp 2>&1 | tee -a $logFile
-else
-    if [ "${usertype}" == "desktop" ]; then
-        if [ $freeSpace -ge 25 ]; then
-	        trigger_os_installer
-	    else
-	        echo "Not enough free disk space to continue" | timestamp 2>&1 | tee -a $logFile
-	    fi
-	fi
+# Wait for Finder process to start and for Dock to appear
+if pgrep -x "Finder" \
+&& pgrep -x "Dock" \
+&& [ "$CURRENT_USER" != "_mbsetupuser" ] \
+&& [ ! -f "${SETUP_DONE}" ]; then  
+    # Kill any installer process running
+    killall Installer
+    # Wait a few seconds
+    sleep 5
+    
+    # Now that we should be logged in, remove NoMADLoginAD
+    #remove_NoLoAD
+    
+    # Enable SSH   
+    systemsetup -setremotelogin on
+              
+    # Set Time zone and loop until it's set
+    TIME_ZONE=$(/usr/sbin/systemsetup -gettimezone)
+    echo "Time zone currently set to $TIME_ZONE." | timestamp 2>&1 | tee -a $LOGFILE
+    until [[ $TIME_ZONE == *"London"* ]]
+    do
+        TIME_ZONE=$(/usr/sbin/systemsetup -gettimezone)
+        echo "Changing time zone to London..." | timestamp 2>&1 | tee -a $LOGFILE
+        /usr/sbin/systemsetup -settimezone "Europe/London"        
+    done
+    
+    # What OS is running?
+    OS_VERSION=`sw_vers -productVersion | awk -F . '{print $2}'`
+    echo "Operating System is 10.$OS_VERSION." | timestamp 2>&1 | tee -a $LOGFILE
+                
+    # Attempt to enable Remote Desktop sharing
+    echo "Enabling ARD Agent..." | timestamp 2>&1 | tee -a $LOGFILE
+    /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -allowAccessFor -allUsers -privs -all -clientopts -setmenuextra -menuextra no
+    
+    # Set location of plist files
+    DEP_NOTIFY_USER_INPUT_PLIST="/Users/$CURRENT_USER/Library/Preferences/menu.nomad.DEPNotifyUserInput.plist"
+    DEP_NOTIFY_CONFIG_PLIST="/Users/$CURRENT_USER/Library/Preferences/menu.nomad.DEPNotify.plist"
+    
+    # If files currently exist then remove them
+    if [ -f "$DEP_NOTIFY_CONFIG_PLIST" ]; then
+        rm "$DEP_NOTIFY_CONFIG_PLIST"
+    fi
+    
+    if [ -f "$DEP_NOTIFY_USER_INPUT_PLIST" ]; then
+        rm "$DEP_NOTIFY_USER_INPUT_PLIST"
+    fi
+      
+    # Set values for DEPNotify
+    echo "Setting plist values for DEP Notify..." | timestamp 2>&1 | tee -a $LOGFILE
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" helpBubble -array-add "$HELP_BUBBLE_TITLE"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" helpBubble -array-add "$HELP_BUBBLE_BODY"
+    
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" pathToPlistFile "$DEP_NOTIFY_USER_INPUT_PLIST"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" registrationMainTitle "Select primary user"    
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" registrationButtonLabel "Continue Setup"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" registrationPicturePath "/usr/local/jamf/UoELogo.png"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" popupButton1Label "Who will be the primary user of this device?"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" popupButton1Content -array-add "Currently logged in user" "Other user"
+    defaults write "$DEP_NOTIFY_CONFIG_PLIST" popupButton1Bubble -array-add "Primary user" "Please select who will be the primary user.\n\nIf you are a computing officer setting the device up for another user then select \"Other user\""
+    
+    # Set inital display text on DEPNotify Window
+    echo "Command: MainTitle: $DEP_NOTIFY_MAIN_TITLE" >> $DEP_NOTIFY_LOG
+    echo "Command: MainText: Starting this process will enrol your device into the university macOS supported service." >> $DEP_NOTIFY_LOG
+    echo "Command: Image: $DEP_NOTIFY_IMAGE" >> $DEP_NOTIFY_LOG
+    echo "Status: " >> $DEP_NOTIFY_LOG 
+    echo "Command: DeterminateManual: 14" >> $DEP_NOTIFY_LOG  
+        
+    # Set permissions on user input plist file
+    chown "$CURRENT_USER":staff "$DEP_NOTIFY_CONFIG_PLIST"
+    chmod 600 "$DEP_NOTIFY_CONFIG_PLIST"
+    
+    # Open DEPNotify
+    echo "Opening DEPNotify..." | timestamp 2>&1 | tee -a $LOGFILE
+    sudo -u "$CURRENT_USER" open -a /Applications/Utilities/DEPNotify.app --args -path "$DEP_NOTIFY_LOG" &
+        
+    # Let's caffinate the mac because this can take long
+    echo "Running caffeinate to make sure machine doesn't sleep." | timestamp 2>&1 | tee -a $LOGFILE
+    /usr/bin/caffeinate -d -i -m -u &
+    caffeinatepid=$!
+    
+    # Get user input...
+    echo "Command: ContinueButtonRegister: Begin setup" >> $DEP_NOTIFY_LOG
+    while [ ! -f "$DEP_NOTIFY_REGISTER_DONE" ]; do
+      echo "Waiting for currently logged in user to select primary user..." | timestamp 2>&1 | tee -a $LOGFILE
+      sleep 5
+    done
+    
+    # Sleep for a few seconds just to make sure selection has been registered in plist
+    sleep 3
+    
+    USERNAME=""
+    
+    # Get the selection value
+    PRIMARY_USER=$(defaults read $DEP_NOTIFY_USER_INPUT_PLIST "Who will be the primary user of this device?")    
+    echo "Primary user selection is $PRIMARY_USER" | timestamp 2>&1 | tee -a $LOGFILE
+    
+    # If it's the currently logged in user then great - we don't even need to validate against AD as logging in using NoMAD LoginAD has already confirmed uun is valid
+    if [ "$PRIMARY_USER" == "Currently logged in user" ];then
+        USERNAME="$CURRENT_USER"
+        "$JAMF_HELPER" -windowType utility \
+								-title "NOTICE" \
+								-heading "Primary user Account" \
+								-icon "$DEP_NOTIFY_IMAGE" \
+								-description "Primary user of the device has been set to the currently logged in UUN
+        
+        $USERNAME
+                                
+Please use Your University Login from now on to login to this device." \
+								-button1 "Continue"
+        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
+    else
+        UUN=$(get_username)      
+        USERNAME="$UUN"
+        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE        
+    fi
+    
+    dep_notify_main_message
+    
+    # Get school code of primary user
+    dep_notify_status "Obtaining school code for username..."
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    SCHOOL="$(get_school ${USERNAME})"
+    sleep 1
+    echo "School code for $USERNAME is $SCHOOL." | timestamp 2>&1 | tee -a $LOGFILE
+    
+    # Get device type
+    dep_notify_status "Obtaining device type..."
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    MOBILITY=$(get_mobility)
+    
+    # Beginning device specific config
+    dep_notify_status "Beginning device specific configuration..."
+    case $MOBILITY in
+        # If it's a laptop
+    	mobile)
+            echo "Status: Performing laptop configuration..." >> $DEP_NOTIFY_LOG
+            echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG            
+  	  		# Create a local account
+  	  		echo "Is a laptop. Creating local account..." | timestamp 2>&1 | tee -a $LOGFILE
+            if ! $(has_local_account ${USERNAME}); then
+                echo "No local account for $USERNAME Found. Creating local account for $USERNAME..." | timestamp 2>&1 | tee -a $LOGFILE
+                $JAMF_BINARY createAccount -username $USERNAME -realname $USERNAME -password $USERNAME
+                NAME=${SCHOOL}-$(get_serial)
+                set_computer_name ${NAME}
+            else
+                # Local account for ${USERNAME} Appears to already exist.
+                echo "Local account for ${USERNAME} already appears to exist. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE     
+                NAME=${SCHOOL}-$(get_serial)
+                set_computer_name ${NAME}
+                # Laptops need an extra step to fill up the DEPNotify bar, so adding a step below.
+                echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+            fi
+    	;;
+        # If it's a Desktop
+    	desktop)
+            echo "Status: Performing Desktop configuration..." >> $DEP_NOTIFY_LOG
+            echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG 
+            echo "Is a desktop." | timestamp 2>&1 | tee -a $LOGFILE
+            # Switch wifi off, it's not needed
+            echo "Switching off wifi..." | timestamp 2>&1 | tee -a $LOGFILE            
+  	  		networksetup -setairportpower $(networksetup -listallhardwareports | awk '/AirPort|Wi-Fi/{getline; print $NF}') off
+            # Attempt to get dns name from EdLAN DB
+            echo "Attempting to obtain name from EdLAN DB..." | timestamp 2>&1 | tee -a $LOGFILE
+            NAME=$(get_edlan_dnsname)
+            # If we get a name, then attempt a bind!
+            if [ ${NAME} ]; then
+                set_desktop_name ${NAME}
+            else            
+                echo "Looks like we couldn't obtain a name. Performing a dig to find DNS name..." | timestamp 2>&1 | tee -a $LOGFILE
+                IP_ADDRESS=`ipconfig getifaddr en0`
+                NAME=`dig +short -x ${IP_ADDRESS} | awk -F '.' '{print $1}'`
+                if [ ${NAME} ]; then
+                    set_desktop_name ${NAME}
+                else
+                    # Send warning to log and just use the same naming scheme as for laptops.
+                    echo "*** Failed to find DNS name from edlan or dig lookup ***" | timestamp 2>&1 | tee -a $LOGFILE
+                    [ -z ${NAME} ] && NAME=${SCHOOL}-$(get_serial)
+                    set_computer_name ${NAME}
+                    #sleep 60
+                    # Display JAMF Helper warning                    
+                    "$JAMF_HELPER" -windowType utility \
+								-title "WARNING!" \
+								-heading "Cannot obtain Computer Name from EdLAN DB!" \
+								-icon "$DEP_NOTIFY_ERROR" \
+								-description "Setup is unable to communicate with EdLAN DB to obtain a Computer name.
+                    
+Setup can continue however it will use the same naming convention as laptops until resolved - $NAME.
+
+Once built, you should be able to resolve this using the Set-Desktop-Name JAMF event trigger.
+
+The computer will also need to be bound to Active Directory by running the JAMF event trigger Bind-AD after the Computer name has been set correctly.
+
+Information on JAMF event triggers can be found here : https://edin.ac/36zzsfX
+
+Please contact IS Helpline if you require any more assistance :
+
+https://edin.ac/helpline
+
+" \
+								-button1 "Continue"
+                    # Change DEPNotify message to main message
+                    dep_notify_main_message
+                    #echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+                fi
+            fi     		
+    	;;
+    	*)
+  			NAME=${SCHOOL}-"Unknown"
+        ;;
+  	esac    
+    
+    # Update JSS with the primary username
+    dep_notify_status "Sending primary user details to JSS..."
+    $JAMF_BINARY recon -endUsername ${USERNAME}
+     
+    # Install Core-Apps
+    echo "Installing Core Applications. Check the following logs for more details :" | timestamp 2>&1 | tee -a $LOGFILE
+    echo " " | tee -a $LOGFILE
+    echo "            /var/log/jamf.log" | tee -a $LOGFILE
+    echo "            /var/log/install.log" | tee -a $LOGFILE
+    echo " " | tee -a $LOGFILE
+    dep_notify_status "Installing Core applications. This may take some time..."   
+    $JAMF_BINARY policy -event Core-Apps
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Run Health Check
+    dep_notify_status "Running Health Check..."
+    $JAMF_BINARY policy -event Health-Check
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Set up Dock
+    dep_notify_status "Setting up Dock..."
+    $JAMF_BINARY policy -event Dock
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Install Login items
+    dep_notify_status "Installing login items..."
+    $JAMF_BINARY policy -event LoginItem
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    dep_notify_status "Checking if a more recent major OS is available..."
+    $JAMF_BINARY policy -event Check-OS-Installer
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+       
+    dep_notify_status "Updating inventory..."
+    $JAMF_BINARY recon
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Checking for software updates
+    dep_notify_status "Checking for software updates..."
+    $JAMF_BINARY policy -event SoftwareUpdateDEP
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Remove uoesupport account
+    dep_notify_status "Removing uoesupport account..." 
+    dscl . delete /Users/uoesupport
+    rm -rf /Users/uoesupport
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+       
+    # If for any reason the local admin account wasn't created, try again.
+    $JAMF_BINARY policy -event Check-Local-Admin
+    
+    dep_notify_status "Removing NoMAD Login AD..."
+    $JAMF_BINARY policy -event removeNoLoAD
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+        
+    # Done
+    echo "Enrolment complete!" | timestamp 2>&1 | tee -a $LOGFILE
+    
+    kill "$caffeinatepid"
+    
+    # Nice completion text
+    echo "Command: Image: $DEP_NOTIFY_COMPLETE_IMAGE" >> $DEP_NOTIFY_LOG
+    echo "Command: MainText: Your Mac is now finished with initial configuration.\n\nPlease restart the device to complete setup.\n\nIf Software Updates were found they will be installed after restarting and may take some time." >> $DEP_NOTIFY_LOG
+    echo "Status: Configuration Complete!" >> $DEP_NOTIFY_LOG   
+    echo "Command: ContinueButtonRestart: Restart" >> $DEP_NOTIFY_LOG  
+    
+    # Remove lock file
+    rm "${LOCK_FILE}"
+
+    # Wait a few seconds
+    sleep 5
+    # Create a bom file that allow this script to stop launching DEPNotify after done
+    /usr/bin/touch /var/db/receipts/is.ed.provisioning.done.bom
+    # Remove the Launch Daemon
+    /bin/rm -Rf /Library/LaunchDaemons/is.ed.launch.plist
+    # Remove this script
+    /bin/rm -- "$0"    
 fi
 
-# Run health check
-echo "Running health check..." | timestamp 2>&1 | tee -a $logFile
-health_check
-
-# Cache offline policies for login items
-#/usr/local/bin/jamf policy -event Login
-echo "Running Dock and LoginItem triggers..." | timestamp 2>&1 | tee -a $logFile
-/usr/local/bin/jamf policy -event Dock
-/usr/local/bin/jamf policy -event LoginItem
-
-# Check if the Mac is already encrypted and prompt so the key can be escrowed.
-echo "Checking encryption status..." | timestamp 2>&1 | tee -a $logFile
-fv_status=`fdesetup status | awk '{print $3}'`
-
-if [ "${fv_status}" == "On." ]; then
-  	echo "Device appears to already be encrypted. Trying to take control of FileVault..." | timestamp 2>&1 | tee -a $logFile
-	/usr/local/bin/jamf policy -event FileVault-Ctrl 	
-fi
-
-# Change back to normal login screen and remove NoMADLoginAD files
-echo "Reverting back to usual login page and removing NoMADLoginAD components" | timestamp 2>&1 | tee -a $logFile
-remove-NoMADLoginAD
-
-# Remove uoesupport account. We should make sure that one of the local admin accounts exist before doing so, so run check-local-admin once more just in case.
-/usr/local/bin/jamf policy -event Check-Local-Admin
-echo "Removing uoesupport account.." | timestamp 2>&1 | tee -a $logFile
-dscl . delete /Users/uoesupport
-rm -rf /Users/uoesupport
-
-# Done
-echo "Enrolment complete!" | timestamp 2>&1 | tee -a $logFile
-
-# Last thing before a restart check for OS updates
-#trigger_software_update
-
-# Time to do a restart
-do_restart
-  
-/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- -windowType utility\
- -title 'UoE Mac Supported Desktop'\
- -heading 'Scheduled restart'\
- -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- -timeout 45\
- -description "$(echo -e Your macOS device will now restart automatically in approximately 1 minute to allow processes to complete.\\n\\nPlease do not manually restart your computer.)"
-
-exit 0;
+exit 0
