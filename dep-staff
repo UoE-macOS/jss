@@ -49,9 +49,6 @@ DEP_NOTIFY_DESKTOP_ERROR="Setup is unable to find an EdLAN DB registration for t
 # Jamf helper location
 JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 
-# Create a global variable to hold value of valid uun
-USERNAME=""
-
 # Function for obtaining timestamp
 timestamp() {
     while read -r line
@@ -181,6 +178,129 @@ If any help is required please contact the IS Helpline - https://edin.ac/helplin
         get_username		
 	done
   	echo ${uun}
+}
+
+get_secure_token_admin(){
+    CURRENT_USER=${1}
+    # We need to request logged in users password as this is the only account that has a secure token
+    PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
+        activate
+            set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
+            with title "Enter password" default answer ""¬
+            with text buttons {"Ok"} default button 1 with hidden answer)
+        end tell'
+    )    
+    DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`
+    # Loop until we are sure password is correct
+    until [[ $DSCL_CHECK == 0 ]]
+    do
+        "$JAMF_HELPER" -windowType utility \
+								-title "WARNING" \
+								-heading "Password incorrect" \
+								-icon "$DEP_NOTIFY_ERROR" \
+								-description "The password for your account appears to be incorrect!
+
+Please attempt to re-enter your password.
+
+Please contact IS Helpline if you require any more assistance :
+
+https://edin.ac/helpline" \
+								-button1 "Retry"
+        PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
+        activate
+            set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
+            with title "Enter password" default answer ""¬
+            with text buttons {"Ok"} default button 1 with hidden answer)
+        end tell'
+    )
+        DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`    
+    done
+    
+    # We need to grant the local admin account a secure token. Get a list of local admin accounts on the computer
+    # LOCAL_ADMINS=$(dscl . -read Groups/admin GroupMembership | cut -c 18- | sed -E -e 's/(root|uoemanage)//g')
+    
+    # Declare array of department admin accounts
+    ADMIN_ACCS=("ahsssupport" "sbsadmin" "camsupport" "csesupport" "csgsupport" "divsupport" "ecasupport" "econsupport" "educsupport" "eusasupport" "geossupport" "hcasupport" "healthsupport" "infsupport" "isgsupport" "lawsupport" "llcsupport" "mathsupport" "mvmsupport" "pplssupport" "ppssupport" "scecollsupport" "sopasupport" "sspsitadmin" "srssupport" "uebs_support")
+    
+    # For each entry in the list of departmental admin accounts, check to see if one of them exists
+    for i in "${ADMIN_ACCS[@]}"
+    do
+        # For each user in /Users/Users
+        for user in "/Users/"/*; do 
+            # Get foldername
+            folderName=`basename $user`
+            # If folder name equals an entry in the array, then most likely this is our local admin account
+            if [ $folderName == "$i" ];
+            then
+                LOCAL_ADMIN_ACCOUNT=$folderName
+            fi
+        done
+    done
+
+    echo "The local admin account is $LOCAL_ADMIN_ACCOUNT" | timestamp 2>&1 | tee -a $LOGFILE
+    
+    ADMIN_PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
+        activate
+            set PASS to text returned of (display dialog "Tto enable the local IT admin account for encryption, please enter the pasword for '$LOCAL_ADMIN_ACCOUNT':"¬
+            with title "Enter password" default answer ""¬
+            with text buttons {"Ok"} default button 1 with hidden answer)
+        end tell'
+    )
+    DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`
+    until [[ $DSCL_CHECK_ADMIN == 0 ]]
+    do
+        "$JAMF_HELPER" -windowType utility \
+								-title "WARNING" \
+								-heading "Password incorrect" \
+								-icon "$DEP_NOTIFY_ERROR" \
+								-description "The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
+
+Please attempt to re-enter the password.
+
+Please contact IS Helpline if you require any more assistance :
+
+https://edin.ac/helpline" \
+								-button1 "Retry"
+        ADMIN_PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
+            activate
+                set PASS to text returned of (display dialog "To enable the local IT admin account for encryption, please enter the pasword for '$LOCAL_ADMIN_ACCOUNT':"¬
+                with title "Enter password" default answer ""¬
+                with text buttons {"Ok"} default button 1 with hidden answer)
+            end tell'
+        )
+        DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`    
+    done
+    
+    # We should hopefully now have all details required to grant the local admin account a secure token. Let's make sure it doesn't have one first
+    CURRENT_STATUS=$(sysadminctl -secureTokenStatus "$LOCAL_ADMIN_ACCOUNT")
+    if [[ "$CURRENT_STATUS" == *"ENABLED"* ]]
+    then
+        echo "$LOCAL_ADMIN_ACCOUNT already has a secure token." | timestamp 2>&1 | tee -a $LOGFILE
+    else
+        echo "$LOCAL_ADMIN_ACCOUNT does not have a secure token. Attempting to apply token..." | timestamp 2>&1 | tee -a $LOGFILE
+        sysadminctl -secureTokenOn "$LOCAL_ADMIN_ACCOUNT" -password "$ADMIN_PASS" -adminUser "$CURRENT_USER" -adminPassword "$PASS"
+    fi       
+}
+
+get_secure_token_other_user(){
+    OTHER_USER=${1}
+    CURRENT_USER=${2}   
+    
+    CURRENT_STATUS=$(sysadminctl -secureTokenStatus "$OTHER_USER")
+    if [[ "$CURRENT_STATUS" == *"ENABLED"* ]]
+    then
+        echo "$OTHER_USER already has a secure token." | timestamp 2>&1 | tee -a $LOGFILE
+    else
+        # Get mobility. If it's a laptop, grant the primary user a secure token. If it's a dekstop don't.
+        MOBILILTY=$(get_mobility)
+        if [[ "$MOBILITY" == "mobile" ]]
+        then
+            echo "$OTHER_USER does not have a secure token. Attempting to apply token..." | timestamp 2>&1 | tee -a $LOGFILE
+            sysadminctl -secureTokenOn "$OTHER_USER" -password "$OTHER_USER" -adminUser "$CURRENT_USER" -adminPassword "$PASS"
+        else
+            echo "As it's a desktop, don't grant the primary user a secure token." | timestamp 2>&1 | tee -a $LOGFILE
+        fi
+    fi
 }
   	
 dep_notify_status(){
@@ -315,6 +435,7 @@ if pgrep -x "Finder" \
     sleep 3
     
     USERNAME=""
+    OTHER_USER=""
     
     # Get the selection value
     PRIMARY_USER=$(defaults read $DEP_NOTIFY_USER_INPUT_PLIST "Who will be the primary user of this device?")    
@@ -335,9 +456,12 @@ Please use Your University Login from now on to login to this device." \
 								-button1 "Continue"
         echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
     else
+        # Set the other user flag - this is required to grant a secure token
+        OTHER_USER="TRUE"
         UUN=$(get_username)      
         USERNAME="$UUN"
-        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE        
+        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
+        
     fi
     
     dep_notify_main_message
@@ -376,6 +500,7 @@ Please use Your University Login from now on to login to this device." \
                 # Laptops need an extra step to fill up the DEPNotify bar, so adding a step below.
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
             fi
+            # We need to make sure 
     	;;
         # If it's a Desktop
     	desktop)
@@ -489,6 +614,17 @@ https://edin.ac/helpline
     dep_notify_status "Removing NoMAD Login AD..."
     $JAMF_BINARY policy -event removeNoLoAD
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    dep_notify_status "Granting secure tokens..."
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    # Attempt to grant local admin account a secure token
+    get_secure_token_admin ${CURRENT_USER}
+    
+    # If other user was selected at the start of the DEP process, attempt to grant the other user a secure token
+    if [ "$OTHER_USER" == "TRUE" ]
+    then
+        get_secure_token_other_user ${USERNAME} ${CURRENT_USER}
+    fi        
         
     # Done
     echo "Enrolment complete!" | timestamp 2>&1 | tee -a $LOGFILE
