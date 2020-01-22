@@ -171,12 +171,12 @@ If any help is required please contact the IS Helpline - https://edin.ac/helplin
 
 "
 		"$JAMF_HELPER" -windowType utility \
-								-title "WARNING!" \
-								-heading "INVALID UNIVERSITY LOGIN USERNAME!" \
-								-icon "$DEP_NOTIFY_ERROR" \
-								-description "$MESSAGE" \
-								-button1 "Retry" \
-                                -defaultButton 1
+						-title "WARNING!" \
+						-heading "INVALID UNIVERSITY LOGIN USERNAME!" \
+						-icon "$DEP_NOTIFY_ERROR" \
+						-description "$MESSAGE" \
+						-button1 "Retry" \
+                        -defaultButton 1
         get_username		
 	done
   	echo ${uun}
@@ -208,19 +208,19 @@ get_secure_token_admin(){
             echo "User password passed check" | timestamp 2>&1 | tee -a $LOGFILE
             break;
         else
-            "$JAMF_HELPER" -windowType utility \
-								-title "WARNING" \
-								-heading "Password incorrect" \
-								-icon "$DEP_NOTIFY_ERROR" \
-								-description "The password for your account appears to be incorrect!
+            "$JAMF_HELPER"  -windowType utility \
+							-title "WARNING" \
+							-heading "Password incorrect" \
+							-icon "$DEP_NOTIFY_ERROR" \
+							-description "The password for your account appears to be incorrect!
 
 Please attempt to re-enter your password.
 
 Please contact IS Helpline for further help $LINK
 
 " \
-								-button1 "Retry" \
-                                -defaultButton 1
+							-button1 "Retry" \
+                            -defaultButton 1
         fi           
     done
     
@@ -266,19 +266,19 @@ Please contact IS Helpline for further help $LINK
             break;
         else
             # Show warning
-            "$JAMF_HELPER" -windowType utility \
-								-title "WARNING" \
-								-heading "Password incorrect" \
-								-icon "$DEP_NOTIFY_ERROR" \
-								-description "The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
+            "$JAMF_HELPER"  -windowType utility \
+                            -title "WARNING" \
+							-heading "Password incorrect" \
+							-icon "$DEP_NOTIFY_ERROR" \
+							-description "The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
 
 Please attempt to re-enter the password for $LOCAL_ADMIN_ACCOUNT.
 
 Please contact IS Helpline for further help $LINK
 
 " \
-								-button1 "Retry" \
-                                -defaultButton 1
+							-button1 "Retry" \
+                            -defaultButton 1
         fi  
     done
     
@@ -337,6 +337,8 @@ dep_notify_main_message(){
     echo "Command: Image: $DEP_NOTIFY_IMAGE" >> $DEP_NOTIFY_LOG    
 }
 
+# ---- MAIN ---- #
+
 # If the receipt is found, DEP already ran so let's remove this script and
 # the launch Daemon. This helps if someone re-enrolls a machine for some reason.
 if [ -f "${SETUP_DONE}" ]; then
@@ -355,7 +357,7 @@ touch "${LOCK_FILE}"
 CURRENT_USER=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
 echo "Logged in user is $CURRENT_USER" | timestamp 2>&1 | tee -a $LOGFILE
 
-# Wait for Finder process to start and for Dock to appear
+# Wait for setup to finish, Finder process to start and for Dock to appear
 if pgrep -x "Finder" \
 && pgrep -x "Dock" \
 && [ "$CURRENT_USER" != "_mbsetupuser" ] \
@@ -364,10 +366,7 @@ if pgrep -x "Finder" \
     killall Installer
     # Wait a few seconds
     sleep 5
-    
-    # Now that we should be logged in, remove NoMADLoginAD
-    #remove_NoLoAD
-    
+       
     # Enable SSH   
     systemsetup -setremotelogin on
               
@@ -517,7 +516,6 @@ Please use Your University Login from now on to login to this device." \
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
             fi
-            # We need to make sure 
     	;;
         # If it's a Desktop
     	desktop)
