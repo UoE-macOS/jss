@@ -150,12 +150,13 @@ validate_username() {
 
 get_username() {
   	uun=$(osascript -e 'tell application "Finder"
-      activate
-        set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer:\n"¬
-        with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
-        buttons {"OK"} default button {"OK"})
-  	end tell
-  	return uun'
+        activate
+            set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer:\n"¬
+            with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
+            with icon file "usr:local:jamf:UoELogo.png"¬
+            buttons {"OK"} default button {"OK"})
+        end tell
+        return uun'
 	)
 	
 	until [ $(get_school ${uun}) != "Unknown" ] && [ $(get_school ${uun}) != "" ]
@@ -174,27 +175,40 @@ If any help is required please contact the IS Helpline - https://edin.ac/helplin
 								-heading "INVALID UNIVERSITY LOGIN USERNAME!" \
 								-icon "$DEP_NOTIFY_ERROR" \
 								-description "$MESSAGE" \
-								-button1 "Retry"		
+								-button1 "Retry" \
+                                -defaultButton 1
         get_username		
 	done
   	echo ${uun}
 }
 
 get_secure_token_admin(){
+    # Grab the current user
     CURRENT_USER=${1}
-    # We need to request logged in users password as this is the only account that has a secure token
-    PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
-        activate
-            set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
-            with title "Enter password" default answer ""¬
-            with text buttons {"Ok"} default button 1 with hidden answer)
-        end tell'
-    )    
-    DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`
+    # Link for assistance
+    LINK="https://edin.ac/helpline"
+    # We need to request logged in users password as this is the only account that has a secure token    
     # Loop until we are sure password is correct
-    until [[ $DSCL_CHECK == 0 ]]
+    while true
     do
-        "$JAMF_HELPER" -windowType utility \
+        PASS=$(/usr/bin/osascript -e 'tell application "Finder"
+            activate
+                set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
+                with title "Enter password" default answer ""¬
+                with text buttons {"Ok"} default button 1 with hidden answer¬
+                with icon file "usr:local:jamf:warning.png")
+            end tell'
+        )
+        
+        DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`
+        echo "DSCL Check for $CURRENT_USER is $((DCSL_CHECK))" | timestamp 2>&1 | tee -a $LOGFILE
+        
+        if [[ $DSCL_CHECK == 0 ]]; then
+            # If password is correct then break from loop
+            echo "User password passed check" | timestamp 2>&1 | tee -a $LOGFILE
+            break;
+        else
+            "$JAMF_HELPER" -windowType utility \
 								-title "WARNING" \
 								-heading "Password incorrect" \
 								-icon "$DEP_NOTIFY_ERROR" \
@@ -202,18 +216,12 @@ get_secure_token_admin(){
 
 Please attempt to re-enter your password.
 
-Please contact IS Helpline if you require any more assistance :
+Please contact IS Helpline for further help $LINK
 
-https://edin.ac/helpline" \
-								-button1 "Retry"
-        PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
-        activate
-            set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
-            with title "Enter password" default answer ""¬
-            with text buttons {"Ok"} default button 1 with hidden answer)
-        end tell'
-    )
-        DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`    
+" \
+								-button1 "Retry" \
+                                -defaultButton 1
+        fi           
     done
     
     # We need to grant the local admin account a secure token. Get a list of local admin accounts on the computer
@@ -238,37 +246,40 @@ https://edin.ac/helpline" \
     done
 
     echo "The local admin account is $LOCAL_ADMIN_ACCOUNT" | timestamp 2>&1 | tee -a $LOGFILE
-    
-    ADMIN_PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
-        activate
-            set PASS to text returned of (display dialog "Tto enable the local IT admin account for encryption, please enter the pasword for '$LOCAL_ADMIN_ACCOUNT':"¬
-            with title "Enter password" default answer ""¬
-            with text buttons {"Ok"} default button 1 with hidden answer)
-        end tell'
-    )
-    DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`
-    until [[ $DSCL_CHECK_ADMIN == 0 ]]
+    while true
     do
-        "$JAMF_HELPER" -windowType utility \
+        ADMIN_PASS=$(/usr/bin/osascript -e 'tell application "Finder"
+            activate
+                set PASS to text returned of (display dialog "To enable the local IT admin account for encryption, please enter the pasword for '$LOCAL_ADMIN_ACCOUNT':"¬
+                with title "Enter password" default answer ""¬
+                with text buttons {"Ok"} default button 1 with hidden answer¬
+                with icon file "usr:local:jamf:warning.png")
+            end tell'
+        )
+    
+        DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`
+        echo "DSCL Check for $LOCAL_ADMIN_ACCOUNT is $((DCSL_CHECK_ADMIN))" | timestamp 2>&1 | tee -a $LOGFILE
+    
+        if [[ $DSCL_CHECK_ADMIN == 0 ]]; then
+            # If password is correct then break from loop
+            echo "Admin password has passed check" | timestamp 2>&1 | tee -a $LOGFILE
+            break;
+        else
+            # Show warning
+            "$JAMF_HELPER" -windowType utility \
 								-title "WARNING" \
 								-heading "Password incorrect" \
 								-icon "$DEP_NOTIFY_ERROR" \
 								-description "The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
 
-Please attempt to re-enter the password.
+Please attempt to re-enter the password for $LOCAL_ADMIN_ACCOUNT.
 
-Please contact IS Helpline if you require any more assistance :
+Please contact IS Helpline for further help $LINK
 
-https://edin.ac/helpline" \
-								-button1 "Retry"
-        ADMIN_PASS=$(/usr/bin/osascript -e 'Tell application "Finder"
-            activate
-                set PASS to text returned of (display dialog "To enable the local IT admin account for encryption, please enter the pasword for '$LOCAL_ADMIN_ACCOUNT':"¬
-                with title "Enter password" default answer ""¬
-                with text buttons {"Ok"} default button 1 with hidden answer)
-            end tell'
-        )
-        DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`    
+" \
+								-button1 "Retry" \
+                                -defaultButton 1
+        fi  
     done
     
     # We should hopefully now have all details required to grant the local admin account a secure token. Let's make sure it doesn't have one first
@@ -291,7 +302,7 @@ get_secure_token_other_user(){
     then
         echo "$OTHER_USER already has a secure token." | timestamp 2>&1 | tee -a $LOGFILE
     else
-        # Get mobility. If it's a laptop, grant the primary user a secure token. If it's a dekstop don't.
+        # Get mobility. If it's a laptop, grant the primary user a secure token. If it's a desktop don't.
         MOBILILTY=$(get_mobility)
         if [[ "$MOBILITY" == "mobile" ]]
         then
@@ -361,13 +372,17 @@ if pgrep -x "Finder" \
     systemsetup -setremotelogin on
               
     # Set Time zone and loop until it's set
-    TIME_ZONE=$(/usr/sbin/systemsetup -gettimezone)
-    echo "Time zone currently set to $TIME_ZONE." | timestamp 2>&1 | tee -a $LOGFILE
-    until [[ $TIME_ZONE == *"London"* ]]
+    while true
     do
         TIME_ZONE=$(/usr/sbin/systemsetup -gettimezone)
-        echo "Changing time zone to London..." | timestamp 2>&1 | tee -a $LOGFILE
-        /usr/sbin/systemsetup -settimezone "Europe/London"        
+        echo "Current Time zone is $TIME_ZONE." | timestamp 2>&1 | tee -a $LOGFILE
+        if [[ $TIME_ZONE != *"London"* ]]; then
+            echo "Changing time zone to London..." | timestamp 2>&1 | tee -a $LOGFILE
+            /usr/sbin/systemsetup -settimezone "Europe/London"            
+        else
+            echo "Time zone already set to London." | timestamp 2>&1 | tee -a $LOGFILE
+            break
+        fi
     done
     
     # What OS is running?
@@ -453,7 +468,8 @@ if pgrep -x "Finder" \
         $USERNAME
                                 
 Please use Your University Login from now on to login to this device." \
-								-button1 "Continue"
+								-button1 "Continue" \
+                                -defaultButton 1
         echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
     else
         # Set the other user flag - this is required to grant a secure token
@@ -498,6 +514,7 @@ Please use Your University Login from now on to login to this device." \
                 NAME=${SCHOOL}-$(get_serial)
                 set_computer_name ${NAME}
                 # Laptops need an extra step to fill up the DEPNotify bar, so adding a step below.
+                echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
             fi
             # We need to make sure 
@@ -548,7 +565,8 @@ Please contact IS Helpline if you require any more assistance :
 https://edin.ac/helpline
 
 " \
-								-button1 "Continue"
+								-button1 "Continue" \
+                                -defaultButton 1
                     # Change DEPNotify message to main message
                     dep_notify_main_message
                     #echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
@@ -563,7 +581,12 @@ https://edin.ac/helpline
     # Update JSS with the primary username
     dep_notify_status "Sending primary user details to JSS..."
     $JAMF_BINARY recon -endUsername ${USERNAME}
-     
+    
+    # Create the local admin account
+    dep_notify_status "Creating local admin account..."
+    $JAMF_BINARY policy -event Check-Local-Admin
+     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
     # Install Core-Apps
     echo "Installing Core Applications. Check the following logs for more details :" | timestamp 2>&1 | tee -a $LOGFILE
     echo " " | tee -a $LOGFILE
@@ -601,16 +624,7 @@ https://edin.ac/helpline
     dep_notify_status "Checking for software updates..."
     $JAMF_BINARY policy -event SoftwareUpdateDEP
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
-    
-    # Remove uoesupport account
-    dep_notify_status "Removing uoesupport account..." 
-    dscl . delete /Users/uoesupport
-    rm -rf /Users/uoesupport
-    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
-       
-    # If for any reason the local admin account wasn't created, try again.
-    $JAMF_BINARY policy -event Check-Local-Admin
-    
+               
     dep_notify_status "Removing NoMAD Login AD..."
     $JAMF_BINARY policy -event removeNoLoAD
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
@@ -619,6 +633,9 @@ https://edin.ac/helpline
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
     # Attempt to grant local admin account a secure token
     get_secure_token_admin ${CURRENT_USER}
+    
+    # Sometimes there's problems creating the local admin account, so try again.
+    $JAMF_BINARY policy -event Check-Local-Admin
     
     # If other user was selected at the start of the DEP process, attempt to grant the other user a secure token
     if [ "$OTHER_USER" == "TRUE" ]
@@ -646,6 +663,12 @@ https://edin.ac/helpline
     /usr/bin/touch /var/db/receipts/is.ed.provisioning.done.bom
     # Remove the Launch Daemon
     /bin/rm -Rf /Library/LaunchDaemons/is.ed.launch.plist
+    
+    # Remove the temporary admin account
+    echo "Removing the temporary admin account..." | timestamp 2>&1 | tee -a $LOGFILE
+    dscl . delete /Users/uoeadmin
+    rm -rf /Users/uoeadmin
+    sleep
     # Remove this script
     /bin/rm -- "$0"    
 fi
