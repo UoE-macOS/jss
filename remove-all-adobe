@@ -1,0 +1,43 @@
+#!/bin/bash
+
+#################################################################################
+#
+# This script removes ALL Adobe applications, support preferences, launch items 
+# and /Library files on the first installation of the Creative Cloud App.
+#
+# It leaves any user-level Adobe prefs or config in place.
+#
+# Date: "Mon 27 Jan 2020 11:30:25 GMT"
+# Version: 0.3
+# Origin: https://github.com/UoE-macOS
+# Released by JSS User: ganders1
+#
+##################################################################################
+
+if [ -e "/Library/Application Support/JAMF/Receipts/Adobe_Desktop_App-CC2019-2.pkg" ]; then
+	echo "This is a re-install of the Creative Cloud App, skipping deletion"
+else
+	echo "This is the first install of the Creative Cloud App, deleting legacy Adobe Apps"
+    rm -rf "/Applications/Adobe "*
+	rm -rf "/Applications/Adobe"
+	rm -rf "/Applications/DynamiclinkSupport"
+	rm -rf "/Applications/Nimbus"
+	rm -rf "/Applications/UniversalFiles"
+	rm -rf "/Applications/Utilities/Adobe Application Manager"
+	rm -rf "/Applications/Utilities/Adobe Creative Cloud"*
+	rm -rf "/Applications/Utilities/Adobe Installers"
+	rm -rf "/Applications/Utilities/Adobe Utilities-CS5.localized"
+	rm -rf "/Applications/Utilities/Adobe Utilities-CS5.localized"
+	rm -rf "/Applications/Utilities/Adobe Utilities.localized"
+	rm -rf "/Applications/Utilities/Adobe Utilities.localized"
+	rm -rf "/Applications/Utilities/Adobe Utilities.localized"
+	rm -rf "/Applications/Utilities/Adobe Utilities"
+	rm -rf "/Library/Application Support/Adobe"
+	rm -rf "/Library/Application Support/Mozilla/Extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/{01A8CA0A-4C96-465b-A49B-65C46FAD54F9}"
+	rm -rf "/Library/Contextual Menu Items/ADFSMenu.plugin"
+	rm -rf "/Library/Internet Plug-Ins/AdobeAAMDetect.plugin"
+	rm -rf "/Library/LaunchAgents/com.adobe."*
+	rm -rf "/Library/LaunchDaemons/com.adobe."*
+	rm -rf "/Library/Preferences/com.adobe."*
+fi
+exit 0;
