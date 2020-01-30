@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Declare variables
+# ======================== Set Globals ======================== #
+
 # LDAP
 LDAP_SERVER="ldaps://authorise.is.ed.ac.uk"
 LDAP_BASE="dc=authorise,dc=ed,dc=ac,dc=uk"
@@ -29,7 +30,7 @@ LOGFILE="/Library/Logs/jamf-enrolment.log"
 DEP_NOTIFY_REGISTER_DONE="/var/tmp/com.depnotify.registration.done"
 
 # Main DEP Notify image and message    
-DEP_NOTIFY_IMAGE="/usr/local/jamf/UoELogo.png"
+UOE_LOGO="/usr/local/jamf/UoELogo.png"
 DEP_NOTIFY_MAIN_TITLE="UoE macOS Supported Desktop Installation"
 DEP_NOTIFY_MAIN_TEXT="Your computer is now being set up with the University of Edinburgh Supported macOS build.\n\nPlease do not interrupt this process.\n\nThis process may take some time. Please be patient."
     
@@ -38,35 +39,42 @@ HELP_BUBBLE_TITLE="Need Help?"
 HELP_BUBBLE_BODY="Please contact IS Helpline on \n\n0131 651 51 51\n\nor visit\n\nhttps://edin.ac/helpline"
 
 # DEPNotify warning sign    
-DEP_NOTIFY_ERROR="/usr/local/jamf/warning.png"
+WARNING_IMAGE="/usr/local/jamf/warning.png"
 
 # DEPNotify setup complete image
-DEP_NOTIFY_COMPLETE_IMAGE="/usr/local/jamf/tick.png"
-
-# DEPNotify error messages for Desktops and laptops
-DEP_NOTIFY_DESKTOP_ERROR="Setup is unable to find an EdLAN DB registration for this device.\n\nSetup will continue in approximately 1 minute however it will use the same naming convention as laptops until resolved.\nOnce built, you should be able to resolve this using the Set-Desktop-Name JAMF event trigger.\n\nThe computer will also need to be bound to Active Directory by running the JAMF event trigger Bind-AD after the hostname has been correctly set.\n\nPlease contact IS Helpline if you require any more assistance."
+COMPLETE_IMAGE="/usr/local/jamf/tick.png"
 
 # Jamf helper location
 JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+
+# Helpline link
+HELPLINE_LINK="https://edin.ac/helpline"
+
+# ======================== END OF GLOBALS ========================  #
+
+# ======================== CUSTOM FUNCTIONS ======================== #
 
 # Function for obtaining timestamp
 timestamp() {
     while read -r line
     do
-        TIMESTAMP=`date`
+        TIMESTAMP=$(date)
         echo "[$TIMESTAMP] $line"
     done
 }
 
 # Get model of device
 get_mobility() {
+    # Get the prodcut name
   	PRODUCT_NAME=$(ioreg -l | awk '/product-name/ { split($0, line, "\""); printf("%s\n", line[4]); }')
+    # if "macbook" exists in the name, then it's a laptop.
   	if echo "${PRODUCT_NAME}" | grep -qi "macbook" 
   	then
     	MOBILITY=mobile
   	else
     	MOBILITY=desktop
-  	fi 
+  	fi
+    # Return mobility
   	echo ${MOBILITY}  
 }
 
@@ -74,12 +82,15 @@ get_mobility() {
 get_serial() {
   	# Full serial is a bit long, use the last 8 chars instead.
   	SERIAL_NO=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/{print $(NF-1)}' | tail -c 9)
-  	echo ${SERIAL_NO}
+    # Return serail number
+  	echo "${SERIAL_NO}"
 }
 
-# Get associated school code
+# Get associated school code. Needs a username.
 get_school() {
+    # Assign UUN to the 1st argument
   	UUN=${1}
+    # Using UUN, get school code
   	SCHOOL_CODE=$(ldapsearch -x -H "${LDAP_SERVER}" -b"${LDAP_BASE}" -s sub "(uid=${UUN})" "${LDAP_SCHOOL}" | awk -F ': ' '/^'"${LDAP_SCHOOL}"'/ {print $2}')
   	# Just return raw eduniSchoolCode for now - ideally we'd like the human-readable abbreviation
   	[ -z "${SCHOOL_CODE}" ] && SCHOOL_CODE="Unknown"
@@ -88,48 +99,62 @@ get_school() {
 
 # Get mac address
 get_macaddr() {
-  	ACTIVE_ADAPTER=`route get ed.ac.uk | grep interface | awk '{print $2}'`
-  	MAC_ADDRESS=$(ifconfig $ACTIVE_ADAPTER ether | awk '/ether/ {print $NF}')
-  	echo "MAC Address: ${MAC_ADDRESS}."
-  	echo ${MAC_ADDRESS}
+    # Get the current active ethernet adapter
+  	ACTIVE_ADAPTER=$(route get ed.ac.uk | grep interface | awk '{print $2}')
+    # Get the MAC address
+  	MAC_ADDRESS=$(ifconfig "$ACTIVE_ADAPTER" ether | awk '/ether/ {print $NF}')
+    # Return the MAC address
+  	echo "${MAC_ADDRESS}"
 }
 
 # Get DNS name form EdLAN DB
 get_edlan_dnsname() {
+    # Get MAC Address
   	MAC=$(get_macaddr)
-  	if ! [ -z ${MAC} ]; then
+    # If MAC address is not null, then use it to obtain full DNS Name from EdLAN DB
+  	if [ -n "${MAC}" ]; then
     	DNSFULL=$(curl --insecure "${EDLAN_DB}?MAC=${MAC}&return=DNS" 2>/dev/null) # This won't work with 10.13, pending edlan changes.
-   		if [ -z ${DNSFULL} ]; then
+        # If no DNS name is found from the bove command, try using python to obtain
+   		if [ -z "${DNSFULL}" ]; then
         	DNSFULL=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${MAC}&return=DNS', context=ssl._create_unverified_context()).read()"`
     	fi
     	# Remove anything potentially dodgy 
-    	DNS_NAME=`echo ${DNSFULL} | awk -F "." '{print $1}'`
-    	echo ${DNS_NAME}
+    	DNS_NAME=$(echo "${DNSFULL}" | awk -F "." '{print $1}')
+        # Return DSN Name
+    	echo "${DNS_NAME}"
   	fi  
 }
 
-# Set the copmuter name
+# Set the computer name
 set_computer_name() {
+    # Set NAME to 1st argument supplied
 	NAME="${1}"
+    # Set the Local Hostname, the Computer Name and the Host Name
   	/usr/sbin/scutil --set LocalHostName "${NAME}"
     /usr/sbin/scutil --set ComputerName "${NAME}"
     /usr/sbin/scutil --set HostName "${NAME}"
 }
 
+# For Desktops, set the name
 set_desktop_name(){
+    # Set NAME to 1st argument supplied
     NAME="${1}"
+    # Display some output to log so we know what;s going on.
     echo "Obtained computer name is $NAME" | timestamp 2>&1 | tee -a $LOGFILE
     echo "Setting local computer name..." | timestamp 2>&1 | tee -a $LOGFILE
-    set_computer_name ${NAME}
+    # Set the computer name
+    set_computer_name "${NAME}"
+    # Attempt a bind to AD. Display some output to the log and the DEPNotify window so we know what's going on, and increase the DEPNotify progress bar by one step.
     echo "Attempting to bind to UoE domain..." | timestamp 2>&1 | tee -a $LOGFILE
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
     echo "Status: Binding computer to UoE domain..." >> $DEP_NOTIFY_LOG
+    # Run the policy to bind the machine
     $JAMF_BINARY policy -event Bind-AD 
 }
 
 # Function to return whether local account exists or not
 has_local_account() {
-  	# Does a local account exist with ${uun}
+  	# Does a local account exist with ${UUN}
   	UUN=${1}
   	if ACCT=$(dscl . -list /Users | grep "^${UUN}$")
   	then
@@ -144,12 +169,13 @@ has_local_account() {
 # Validate username
 validate_username() {
     # Determine validity of a username by checking whether we can find the school code.
-  	uun=${1}  
-  	[ ! -z "$(get_school ${1})" ]
+  	UUN=${1}  
+  	[ -n "$(get_school ${UUN})" ]
 }
 
 get_username() {
-  	uun=$(osascript -e 'tell application "Finder"
+    # Get the username of the primary user
+  	UUN=$(osascript -e 'tell application "Finder"
         activate
             set uun to text returned of (display dialog "Welcome to the Mac Supported Desktop.\n\nPlease enter the University Username of the primary user of this computer:\n"¬
             with title "University of Edinburgh Mac Supported Desktop" default answer ""¬
@@ -158,94 +184,126 @@ get_username() {
         end tell
         return uun'
 	)
-	
-	until [ $(get_school ${uun}) != "Unknown" ] && [ $(get_school ${uun}) != "" ]
+	# Repeat jamf helper warning message until a valid uun is entered.
+	until [ $(get_school "${UUN}") != "Unknown" ] && [ $(get_school "${UUN}") != "" ]
 	do
-		MESSAGE="The setup detected an error due to not being able to find a valid school code for University Login username $uun.
+        # Description for invalid UUN message
+        INVALID_UUN_MESSAGE="The setup detected an error due to not being able to find a valid school code for University Login username $UUN.
         
 This process cannot continue without a valid University Login username.
 
 Select the button below to re-enter.
 
-If any help is required please contact the IS Helpline - https://edin.ac/helpline
+If any help is required please contact the IS Helpline - $HELPLINE_LINK
 
 "
+        # Display message
 		"$JAMF_HELPER" -windowType utility \
 						-title "WARNING!" \
 						-heading "INVALID UNIVERSITY LOGIN USERNAME!" \
-						-icon "$DEP_NOTIFY_ERROR" \
-						-description "$MESSAGE" \
+						-icon "$WARNING_IMAGE" \
+						-description "$INVALID_UUN_MESSAGE" \
 						-button1 "Retry" \
                         -defaultButton 1
         get_username		
 	done
-  	echo ${uun}
+    # Return uun
+  	echo "${UUN}"
 }
 
+# Check to see if the account name supplied has a secure token
+check_secure_token(){
+    # Declare some local variables
+    local ACCOUNT=${1}
+    # Get token status of account
+    local CURRENT_STATUS=$(sysadminctl -secureTokenStatus "$ACCOUNT" 2>&1)
+    # If it's enabled, set the variable
+    if [[ "$CURRENT_STATUS" == *"ENABLED"* ]]; then
+        ST_STATUS="ENABLED"
+    else
+        ST_STATUS="DISABLED"
+    fi
+    # Return the status
+    echo "$ST_STATUS"
+}
+
+# Function to apply a secure token to an account
+apply_secure_token(){
+    # Set local varilables
+    local ACCOUNT=${1}
+    local ACCOUNT_PASS=${2}
+    local ADM_ACC=${3}
+    local ADM_PASS=${4}
+    # Display some output to log
+    echo "Account is $ACCOUNT" | timestamp 2>&1 | tee -a $LOGFILE
+    echo "Admin account is $ADM_ACC" | timestamp 2>&1 | tee -a $LOGFILE
+    # Apply the token
+    sysadminctl -secureTokenOn "$ACCOUNT" -password "$ACCOUNT_PASS" -adminUser "$ADM_ACC" -adminPassword "$ADM_PASS"
+}
+
+# Function to apply secure token to the local IT admin account
 get_secure_token_admin(){
     # Grab the current user
-    CURRENT_USER=${1}
-    # Link for assistance
-    LINK="https://edin.ac/helpline"
+    local CURRENT_USER=${1}    
     # We need to request logged in users password as this is the only account that has a secure token    
     # Loop until we are sure password is correct
     while true
     do
         PASS=$(/usr/bin/osascript -e 'tell application "Finder"
             activate
-                set PASS to text returned of (display dialog "To enable an account for encryption, this process requires you to enter your password :"¬
+                set PASS to text returned of (display dialog "To enable an account for encryption, please enter the login password for '$CURRENT_USER' :"¬
                 with title "Enter password" default answer ""¬
                 with text buttons {"Ok"} default button 1 with hidden answer¬
                 with icon file "usr:local:jamf:warning.png")
             end tell'
         )
-        
-        DSCL_CHECK=`dscl /Local/Default authonly $CURRENT_USER $PASS; echo $?`
-        echo "DSCL Check for $CURRENT_USER is $((DCSL_CHECK))" | timestamp 2>&1 | tee -a $LOGFILE
-        
+        # Check that password entered is correct
+        DSCL_CHECK=$(dscl /Local/Default authonly "$CURRENT_USER" "$PASS"; echo $?)
+        # If it's equal to 0 then password was correct        
         if [[ $DSCL_CHECK == 0 ]]; then
             # If password is correct then break from loop
             echo "User password passed check" | timestamp 2>&1 | tee -a $LOGFILE
             break;
         else
-            "$JAMF_HELPER"  -windowType utility \
-							-title "WARNING" \
-							-heading "Password incorrect" \
-							-icon "$DEP_NOTIFY_ERROR" \
-							-description "The password for your account appears to be incorrect!
+            # Description for invalid password entered by logged in user. Required for applying secure token to another account.
+            INVALID_PASS_MESSAGE="The password for your account appears to be incorrect!
 
 Please attempt to re-enter your password.
 
-Please contact IS Helpline for further help $LINK
+Please contact IS Helpline for further help $HELPLINE_LINK
 
-" \
+"
+            # Display message
+            "$JAMF_HELPER"  -windowType utility \
+							-title "WARNING" \
+							-heading "Password incorrect" \
+							-icon "$WARNING_IMAGE" \
+							-description "$INVALID_PASS_MESSAGE" \
 							-button1 "Retry" \
                             -defaultButton 1
         fi           
     done
-    
-    # We need to grant the local admin account a secure token. Get a list of local admin accounts on the computer
-    # LOCAL_ADMINS=$(dscl . -read Groups/admin GroupMembership | cut -c 18- | sed -E -e 's/(root|uoemanage)//g')
-    
+       
     # Declare array of department admin accounts
     ADMIN_ACCS=("ahsssupport" "sbsadmin" "camsupport" "csesupport" "csgsupport" "divsupport" "ecasupport" "econsupport" "educsupport" "eusasupport" "geossupport" "hcasupport" "healthsupport" "infsupport" "isgsupport" "lawsupport" "llcsupport" "mathsupport" "mvmsupport" "pplssupport" "ppssupport" "scecollsupport" "sopasupport" "sspsitadmin" "srssupport" "uebs_support")
     
     # For each entry in the list of departmental admin accounts, check to see if one of them exists
     for i in "${ADMIN_ACCS[@]}"
     do
-        # For each user in /Users/Users
-        for user in "/Users/"/*; do 
+        # For each user in /Users/
+        for USER in "/Users/"/*; do 
             # Get foldername
-            folderName=`basename $user`
+            FOLDER_NAME=$(basename "$USER")
             # If folder name equals an entry in the array, then most likely this is our local admin account
-            if [ $folderName == "$i" ];
+            if [ "$FOLDER_NAME" == "$i" ];
             then
-                LOCAL_ADMIN_ACCOUNT=$folderName
+                LOCAL_ADMIN_ACCOUNT="$FOLDER_NAME"
             fi
         done
     done
-
     echo "The local admin account is $LOCAL_ADMIN_ACCOUNT" | timestamp 2>&1 | tee -a $LOGFILE
+    
+    # Loop until the password for the local admin account is correct
     while true
     do
         ADMIN_PASS=$(/usr/bin/osascript -e 'tell application "Finder"
@@ -256,88 +314,164 @@ Please contact IS Helpline for further help $LINK
                 with icon file "usr:local:jamf:warning.png")
             end tell'
         )
-    
-        DSCL_CHECK_ADMIN=`dscl /Local/Default authonly $LOCAL_ADMIN_ACCOUNT $ADMIN_PASS; echo $?`
-        echo "DSCL Check for $LOCAL_ADMIN_ACCOUNT is $((DCSL_CHECK_ADMIN))" | timestamp 2>&1 | tee -a $LOGFILE
-    
+        
+        # Check to make sure password is correct
+        DSCL_CHECK_ADMIN=$(dscl /Local/Default authonly "$LOCAL_ADMIN_ACCOUNT" "$ADMIN_PASS"; echo $?)
+        # If the check returned 0, then it's correct
         if [[ $DSCL_CHECK_ADMIN == 0 ]]; then
             # If password is correct then break from loop
             echo "Admin password has passed check" | timestamp 2>&1 | tee -a $LOGFILE
             break;
         else
-            # Show warning
-            "$JAMF_HELPER"  -windowType utility \
-                            -title "WARNING" \
-							-heading "Password incorrect" \
-							-icon "$DEP_NOTIFY_ERROR" \
-							-description "The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
+            # Description for invalid local admin password. Required for applying token to the admin account.
+            ADMIN_INVALID_PASS_MESSAGE="The password for $LOCAL_ADMIN_ACCOUNT appears to be incorrect!
 
 Please attempt to re-enter the password for $LOCAL_ADMIN_ACCOUNT.
 
-Please contact IS Helpline for further help $LINK
+Please contact IS Helpline for further help $HELPLINE_LINK
 
-" \
+"
+            # Display message
+            "$JAMF_HELPER"  -windowType utility \
+                            -title "WARNING" \
+							-heading "Password incorrect" \
+							-icon "$WARNING_IMAGE" \
+							-description "$ADMIN_INVALID_PASS_MESSAGE" \
 							-button1 "Retry" \
                             -defaultButton 1
         fi  
     done
     
     # We should hopefully now have all details required to grant the local admin account a secure token. Let's make sure it doesn't have one first
-    CURRENT_STATUS=$(sysadminctl -secureTokenStatus "$LOCAL_ADMIN_ACCOUNT")
-    if [[ "$CURRENT_STATUS" == *"ENABLED"* ]]
+    ADMIN_TOKEN_STATUS=$(check_secure_token "$LOCAL_ADMIN_ACCOUNT")
+    echo "Admin account token status is $ADMIN_TOKEN_STATUS" | timestamp 2>&1 | tee -a $LOGFILE
+    if [ "$ADMIN_TOKEN_STATUS" = "ENABLED" ]
     then
         echo "$LOCAL_ADMIN_ACCOUNT already has a secure token." | timestamp 2>&1 | tee -a $LOGFILE
+        "$JAMF_HELPER"  -windowType utility \
+                        -title "Secure Token Message" \
+                        -icon "$COMPLETE_IMAGE" \
+                        -heading "Already enabled." \
+                        -description "Account $LOCAL_ADMIN_ACCOUNT appears to already have a secure token." \
+                        -button1 "Continue" \
+                        -defaultButton 1
     else
         echo "$LOCAL_ADMIN_ACCOUNT does not have a secure token. Attempting to apply token..." | timestamp 2>&1 | tee -a $LOGFILE
-        sysadminctl -secureTokenOn "$LOCAL_ADMIN_ACCOUNT" -password "$ADMIN_PASS" -adminUser "$CURRENT_USER" -adminPassword "$PASS"
-    fi       
+        # Apply secure token to the admin account
+        apply_secure_token "$LOCAL_ADMIN_ACCOUNT" "$ADMIN_PASS" "$CURRENT_USER" "$PASS"
+        # Sleep for 5 seconds just to make sure change has applied
+        sleep 5
+        # Check to make sure it's applied
+        ADMIN_TOKEN_STATUS=$(check_secure_token "$LOCAL_ADMIN_ACCOUNT")
+        if [ "$ADMIN_TOKEN_STATUS" = "ENABLED" ]; then  
+            "$JAMF_HELPER"  -windowType utility \
+                            -title "Secure Token Message" \
+                            -icon "$COMPLETE_IMAGE" \
+                            -heading "Successful!" \
+                            -description "Secure token has been applied to account $LOCAL_ADMIN_ACCOUNT..." \
+                            -button1 "Continue" \
+                            -defaultButton 1
+        else
+            # Applying the token has failed. Display message to user.
+            echo "FAILED - Cannot apply secure token to $LOCAL_ADMIN_ACCOUNT. Displaying warning to user." | timestamp 2>&1 | tee -a $LOGFILE
+            # Secure token fail message
+            SECURE_TOKEN_FAILED_MESSAGE="This process has failed to apply a secure token to account $LOCAL_ADMIN_ACCOUNT.
+            
+If you are a Computing Officer, you can attempt to apply a secure token to the account $LOCAL_ADMIN_ACCOUNT manually using the terminal and sysadminctl command.
+
+If not, please contact Information Services :
+
+$HELPLINE_LINK
+
+once setup is complete as this problem will need to be rectified.
+
+Accounts which do not have a secure token will not be able to login to this device once FileVault2 is enabled."
+            # Display message
+            "$JAMF_HELPER"  -windowType utility \
+                            -title "Secure Token Message" \
+                            -icon "$WARNING_IMAGE" \
+                            -heading "Failed to apply secure token!" \
+                            -description "$SECURE_TOKEN_FAILED_MESSAGE" \
+                            -button1 "Continue" \
+                            -defaultButton 1
+        fi        
+    fi     
 }
 
+# Apply a secure token to the primary user. This will only come into play if "Other user" was selected at the start of the DEP process.
 get_secure_token_other_user(){
-    OTHER_USER=${1}
-    CURRENT_USER=${2}   
-    
-    CURRENT_STATUS=$(sysadminctl -secureTokenStatus "$OTHER_USER")
-    if [[ "$CURRENT_STATUS" == *"ENABLED"* ]]
+    # Decalre some local variables
+    local OTHER_USER=${1}
+    local CURRENT_USER=${2}   
+    # Get current status of account
+    CURRENT_STATUS=$(check_secure_token "$OTHER_USER")
+    # If it's already enabled then no need to continue.
+    if [ "$CURRENT_STATUS" = "ENABLED" ]
     then
         echo "$OTHER_USER already has a secure token." | timestamp 2>&1 | tee -a $LOGFILE
+    # Else, if it's a laptop we need to apply the token
     else
         # Get mobility. If it's a laptop, grant the primary user a secure token. If it's a desktop don't.
         MOBILILTY=$(get_mobility)
         if [[ "$MOBILITY" == "mobile" ]]
         then
             echo "$OTHER_USER does not have a secure token. Attempting to apply token..." | timestamp 2>&1 | tee -a $LOGFILE
-            sysadminctl -secureTokenOn "$OTHER_USER" -password "$OTHER_USER" -adminUser "$CURRENT_USER" -adminPassword "$PASS"
+            # Apply the token
+            apply_secure_token "$OTHER_USER" "$OTHER_USER" "$CURRENT_USER" "$PASS"
+            # Sleep for a bit to make sure token has applied
+            sleep 5
+            # Check status again
+            CURRENT_STATUS=$(check_secure_token "$LOCAL_ADMIN_ACCOUNT")
+            # If it's enabled then display appropriate message
+            if [ "$CURRENT_STATUS" = "ENABLED" ]; then  
+            "$JAMF_HELPER"  -windowType utility \
+                            -title "FileVault" \
+                            -icon "$COMPLETE_IMAGE" \
+                            -heading "Successful!" \
+                            -description "Secure token has been applied to account $OTHER_USER..." \
+                            -button1 "Continue" \
+                           -defaultButton 1
+            # Else, display warning message stating that it's failed.
+            else
+                echo "FAILED - Cannot apply secure token to $OTHER_USER. Displaying warning to user." | timestamp 2>&1 | tee -a $LOGFILE                          
+                "$JAMF_HELPER"  -windowType utility \
+                            -title "FileVault" \
+                            -icon "$WARNING_IMAGE" \
+                            -heading "Failed to apply secure token!" \
+                            -description "This process has failed to apply a secure token to account $OTHER_USER
+            
+Setup can continue but please contact Information Services :
+
+https://edin.ac/helpline
+
+as this problem will need to be rectified." \
+                            -button1 "Continue" \
+                            -defaultButton 1
+            fi
+        # Else it's desktop. Dont' apply a token.
         else
             echo "As it's a desktop, don't grant the primary user a secure token." | timestamp 2>&1 | tee -a $LOGFILE
         fi
     fi
 }
-  	
+
+# Function to change DEPNotify status message
 dep_notify_status(){
-    STATUS="${1}"
+    local STATUS="${1}"
     echo "${STATUS}" | timestamp 2>&1 | tee -a $LOGFILE
     echo "Status: ${STATUS}" >> $DEP_NOTIFY_LOG   
 }
 
-dep_notify_error(){
-    MAIN_TITLE="${1}"
-    MAIN_TEXT="${2}"
-    STATUS="${3}"
-    echo "Command: MainTitle: $MAIN_TITLE" >> $DEP_NOTIFY_LOG
-    echo "Command: MainText: $MAIN_TEXT" >> $DEP_NOTIFY_LOG
-    echo "Command: Image: $DEP_NOTIFY_ERROR" >> $DEP_NOTIFY_LOG
-    echo "Status: $STATUS" >> $DEP_NOTIFY_LOG
-    sleep 60
-}
-
+# Function to change DEPNotify back to it's main message
 dep_notify_main_message(){
     echo "Command: MainTitle: $DEP_NOTIFY_MAIN_TITLE" >> $DEP_NOTIFY_LOG
     echo "Command: MainText: $DEP_NOTIFY_MAIN_TEXT" >> $DEP_NOTIFY_LOG    
-    echo "Command: Image: $DEP_NOTIFY_IMAGE" >> $DEP_NOTIFY_LOG    
+    echo "Command: Image: $UOE_LOGO" >> $DEP_NOTIFY_LOG    
 }
 
-# ---- MAIN ---- #
+# ======================== END OF CUSTOM FUNCTIONS ======================== #
+
+# ======================== MAIN ======================== #
 
 # If the receipt is found, DEP already ran so let's remove this script and
 # the launch Daemon. This helps if someone re-enrolls a machine for some reason.
@@ -385,7 +519,7 @@ if pgrep -x "Finder" \
     done
     
     # What OS is running?
-    OS_VERSION=`sw_vers -productVersion | awk -F . '{print $2}'`
+    OS_VERSION=$(sw_vers -productVersion | awk -F . '{print $2}')
     echo "Operating System is 10.$OS_VERSION." | timestamp 2>&1 | tee -a $LOGFILE
                 
     # Attempt to enable Remote Desktop sharing
@@ -407,9 +541,10 @@ if pgrep -x "Finder" \
       
     # Set values for DEPNotify
     echo "Setting plist values for DEP Notify..." | timestamp 2>&1 | tee -a $LOGFILE
+    # Values for help bubble
     defaults write "$DEP_NOTIFY_CONFIG_PLIST" helpBubble -array-add "$HELP_BUBBLE_TITLE"
     defaults write "$DEP_NOTIFY_CONFIG_PLIST" helpBubble -array-add "$HELP_BUBBLE_BODY"
-    
+    # Values for configuration
     defaults write "$DEP_NOTIFY_CONFIG_PLIST" pathToPlistFile "$DEP_NOTIFY_USER_INPUT_PLIST"
     defaults write "$DEP_NOTIFY_CONFIG_PLIST" registrationMainTitle "Select primary user"    
     defaults write "$DEP_NOTIFY_CONFIG_PLIST" registrationButtonLabel "Continue Setup"
@@ -420,8 +555,8 @@ if pgrep -x "Finder" \
     
     # Set inital display text on DEPNotify Window
     echo "Command: MainTitle: $DEP_NOTIFY_MAIN_TITLE" >> $DEP_NOTIFY_LOG
-    echo "Command: MainText: Starting this process will enrol your device into the university macOS supported service." >> $DEP_NOTIFY_LOG
-    echo "Command: Image: $DEP_NOTIFY_IMAGE" >> $DEP_NOTIFY_LOG
+    echo "Command: MainText: Starting this process will enrol your device into the University macOS supported service." >> $DEP_NOTIFY_LOG
+    echo "Command: Image: $UOE_LOGO" >> $DEP_NOTIFY_LOG
     echo "Status: " >> $DEP_NOTIFY_LOG 
     echo "Command: DeterminateManual: 14" >> $DEP_NOTIFY_LOG  
         
@@ -433,13 +568,14 @@ if pgrep -x "Finder" \
     echo "Opening DEPNotify..." | timestamp 2>&1 | tee -a $LOGFILE
     sudo -u "$CURRENT_USER" open -a /Applications/Utilities/DEPNotify.app --args -path "$DEP_NOTIFY_LOG" &
         
-    # Let's caffinate the mac because this can take long
+    # Start caffeinate as this can take a while
     echo "Running caffeinate to make sure machine doesn't sleep." | timestamp 2>&1 | tee -a $LOGFILE
     /usr/bin/caffeinate -d -i -m -u &
     caffeinatepid=$!
     
     # Get user input...
     echo "Command: ContinueButtonRegister: Begin setup" >> $DEP_NOTIFY_LOG
+    # Wait until user selects button
     while [ ! -f "$DEP_NOTIFY_REGISTER_DONE" ]; do
       echo "Waiting for currently logged in user to select primary user..." | timestamp 2>&1 | tee -a $LOGFILE
       sleep 5
@@ -448,35 +584,47 @@ if pgrep -x "Finder" \
     # Sleep for a few seconds just to make sure selection has been registered in plist
     sleep 3
     
-    USERNAME=""
-    OTHER_USER=""
-    
     # Get the selection value
-    PRIMARY_USER=$(defaults read $DEP_NOTIFY_USER_INPUT_PLIST "Who will be the primary user of this device?")    
+    PRIMARY_USER=$(defaults read "$DEP_NOTIFY_USER_INPUT_PLIST" "Who will be the primary user of this device?")    
     echo "Primary user selection is $PRIMARY_USER" | timestamp 2>&1 | tee -a $LOGFILE
     
     # If it's the currently logged in user then great - we don't even need to validate against AD as logging in using NoMAD LoginAD has already confirmed uun is valid
     if [ "$PRIMARY_USER" == "Currently logged in user" ];then
         USERNAME="$CURRENT_USER"
-        "$JAMF_HELPER" -windowType utility \
-								-title "NOTICE" \
-								-heading "Primary user Account" \
-								-icon "$DEP_NOTIFY_IMAGE" \
-								-description "Primary user of the device has been set to the currently logged in UUN
+        # Set flag that self setup is happening. This will enable us to bypass the prompt for applying the secure token for the local admin account and let the end user setup.
+        SELF_SETUP="TRUE"
+        # Description message for primary usr being the currently logged in user
+        CURRENT_LOGGED_IN_USER_MESSAGE="Primary user of the device has been set to the currently logged in username
         
         $USERNAME
                                 
-Please use Your University Login from now on to login to this device." \
+Please use Your University Login from now on to login to this device."
+        # Display message
+        "$JAMF_HELPER" -windowType utility \
+								-title "NOTICE" \
+								-heading "Primary user Account" \
+								-icon "$UOE_LOGO" \
+								-description "$CURRENT_LOGGED_IN_USER_MESSAGE" \
 								-button1 "Continue" \
                                 -defaultButton 1
         echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
     else
+        # Set flag that self setup is happening. This will make sure the prompt for applying the secure token for the local admin account appears.
+        SELF_SETUP="FALSE"
         # Set the other user flag - this is required to grant a secure token
         OTHER_USER="TRUE"
-        UUN=$(get_username)      
+        UUN=$(get_username)    
         USERNAME="$UUN"
-        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
-        
+        # In some test cases, we've found that a '0' appends to the beginning of the acquired uun, so we need to remove any number which may attach itself
+        # to the beginning of the value.
+        echo "Checking to make sure an integer hasn't made it's way to the start of the username..."| timestamp 2>&1 | tee -a $LOGFILE
+        if [[ $USERNAME =~ ^[0-9] ]]; then
+            echo "$USERNAME begins with an integer. Stripping it out..." | timestamp 2>&1 | tee -a $LOGFILE
+            USERNAME=${USERNAME#?}
+        else
+            echo "$USERNAME doesn't begin with an integer. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
+        fi        
+        echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE        
     fi
     
     dep_notify_main_message
@@ -502,16 +650,16 @@ Please use Your University Login from now on to login to this device." \
             echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG            
   	  		# Create a local account
   	  		echo "Is a laptop. Creating local account..." | timestamp 2>&1 | tee -a $LOGFILE
-            if ! $(has_local_account ${USERNAME}); then
+            if ! $(has_local_account "${USERNAME}"); then
                 echo "No local account for $USERNAME Found. Creating local account for $USERNAME..." | timestamp 2>&1 | tee -a $LOGFILE
-                $JAMF_BINARY createAccount -username $USERNAME -realname $USERNAME -password $USERNAME
+                $JAMF_BINARY createAccount -username "$USERNAME" -realname "$USERNAME" -password "$USERNAME"
                 NAME=${SCHOOL}-$(get_serial)
-                set_computer_name ${NAME}
+                set_computer_name "${NAME}"
             else
                 # Local account for ${USERNAME} Appears to already exist.
                 echo "Local account for ${USERNAME} already appears to exist. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE     
                 NAME=${SCHOOL}-$(get_serial)
-                set_computer_name ${NAME}
+                set_computer_name "${NAME}"
                 # Laptops need an extra step to fill up the DEPNotify bar, so adding a step below.
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
                 echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
@@ -524,30 +672,31 @@ Please use Your University Login from now on to login to this device." \
             echo "Is a desktop." | timestamp 2>&1 | tee -a $LOGFILE
             # Switch wifi off, it's not needed
             echo "Switching off wifi..." | timestamp 2>&1 | tee -a $LOGFILE            
-  	  		networksetup -setairportpower $(networksetup -listallhardwareports | awk '/AirPort|Wi-Fi/{getline; print $NF}') off
+  	  		networksetup -setairportpower "$(networksetup -listallhardwareports | awk '/AirPort|Wi-Fi/{getline; print $NF}')" off
             # Attempt to get dns name from EdLAN DB
             echo "Attempting to obtain name from EdLAN DB..." | timestamp 2>&1 | tee -a $LOGFILE
             NAME=$(get_edlan_dnsname)
             # If we get a name, then attempt a bind!
-            if [ ${NAME} ]; then
-                set_desktop_name ${NAME}
+            if [ "${NAME}" ]; then
+                echo "Obtained DNS name $NAME from EdLAN DB." | timestamp 2>&1 | tee -a $LOGFILE
+                set_desktop_name "${NAME}"                
             else            
                 echo "Looks like we couldn't obtain a name. Performing a dig to find DNS name..." | timestamp 2>&1 | tee -a $LOGFILE
-                IP_ADDRESS=`ipconfig getifaddr en0`
-                NAME=`dig +short -x ${IP_ADDRESS} | awk -F '.' '{print $1}'`
-                if [ ${NAME} ]; then
-                    set_desktop_name ${NAME}
+                IP_ADDRESS=$(ipconfig getifaddr en0)
+                NAME=$(dig +short -x ${IP_ADDRESS} | awk -F '.' '{print $1}')
+                if [ "${NAME}" ]; then
+                    set_desktop_name "${NAME}"
                 else
                     # Send warning to log and just use the same naming scheme as for laptops.
                     echo "*** Failed to find DNS name from edlan or dig lookup ***" | timestamp 2>&1 | tee -a $LOGFILE
-                    [ -z ${NAME} ] && NAME=${SCHOOL}-$(get_serial)
-                    set_computer_name ${NAME}
+                    [ -z "${NAME}" ] && NAME=${SCHOOL}-$(get_serial)
+                    set_computer_name "${NAME}"
                     #sleep 60
                     # Display JAMF Helper warning                    
                     "$JAMF_HELPER" -windowType utility \
 								-title "WARNING!" \
 								-heading "Cannot obtain Computer Name from EdLAN DB!" \
-								-icon "$DEP_NOTIFY_ERROR" \
+								-icon "$WARNING_IMAGE" \
 								-description "Setup is unable to communicate with EdLAN DB to obtain a Computer name.
                     
 Setup can continue however it will use the same naming convention as laptops until resolved - $NAME.
@@ -558,11 +707,7 @@ The computer will also need to be bound to Active Directory by running the JAMF 
 
 Information on JAMF event triggers can be found here : https://edin.ac/36zzsfX
 
-Please contact IS Helpline if you require any more assistance :
-
-https://edin.ac/helpline
-
-" \
+Please contact IS Helpline if you require any more assistance - https://edin.ac/helpline" \
 								-button1 "Continue" \
                                 -defaultButton 1
                     # Change DEPNotify message to main message
@@ -578,7 +723,7 @@ https://edin.ac/helpline
     
     # Update JSS with the primary username
     dep_notify_status "Sending primary user details to JSS..."
-    $JAMF_BINARY recon -endUsername ${USERNAME}
+    $JAMF_BINARY recon -endUsername "${USERNAME}"
     
     # Create the local admin account
     dep_notify_status "Creating local admin account..."
@@ -611,7 +756,7 @@ https://edin.ac/helpline
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
     
     dep_notify_status "Checking if a more recent major OS is available..."
-    $JAMF_BINARY policy -event Check-OS-Installer
+    $JAMF_BINARY policy -event CheckOSInstallerDEP
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
        
     dep_notify_status "Updating inventory..."
@@ -627,18 +772,22 @@ https://edin.ac/helpline
     $JAMF_BINARY policy -event removeNoLoAD
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
     
-    dep_notify_status "Granting secure tokens..."
-    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
-    # Attempt to grant local admin account a secure token
-    get_secure_token_admin ${CURRENT_USER}
-    
     # Sometimes there's problems creating the local admin account, so try again.
     $JAMF_BINARY policy -event Check-Local-Admin
     
+    dep_notify_status "Granting secure tokens..."
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    # If the device is being setup by the end user (currently logged in user), don't apply a secure token for the admin account
+    if [ "$SELF_SETUP" = "FALSE" ]; then
+        # Applying secure token to admin account
+        get_secure_token_admin "${CURRENT_USER}"
+    else
+        echo "As the primary user of the device is performing the setup, bypassing applying a secure token to the local admin account." | timestamp 2>&1 | tee -a $LOGFILE
+    fi
+        
     # If other user was selected at the start of the DEP process, attempt to grant the other user a secure token
-    if [ "$OTHER_USER" == "TRUE" ]
-    then
-        get_secure_token_other_user ${USERNAME} ${CURRENT_USER}
+    if [ "$OTHER_USER" = "TRUE" ]; then
+        get_secure_token_other_user "${USERNAME}" "${CURRENT_USER}"
     fi        
         
     # Done
@@ -647,7 +796,7 @@ https://edin.ac/helpline
     kill "$caffeinatepid"
     
     # Nice completion text
-    echo "Command: Image: $DEP_NOTIFY_COMPLETE_IMAGE" >> $DEP_NOTIFY_LOG
+    echo "Command: Image: $COMPLETE_IMAGE" >> $DEP_NOTIFY_LOG
     echo "Command: MainText: Your Mac is now finished with initial configuration.\n\nPlease restart the device to complete setup.\n\nIf Software Updates were found they will be installed after restarting and may take some time." >> $DEP_NOTIFY_LOG
     echo "Status: Configuration Complete!" >> $DEP_NOTIFY_LOG   
     echo "Command: ContinueButtonRestart: Restart" >> $DEP_NOTIFY_LOG  
