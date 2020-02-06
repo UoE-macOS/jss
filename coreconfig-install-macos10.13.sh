@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.13
 #
-# Date: Thu 31 Oct 2019 13:56:34 GMT
-# Version: 0.1.7
+# Date: Thu 6 Feb 2020 15:54:23 GMT
+# Version: 0.1.8
 # Creator: dsavage
 #
 ##################################################################
@@ -21,6 +21,11 @@ if [ -e /macOS\ Install\ Data ]
 then
 # Install process already underway
 exit 0
+fi
+
+if ! [ -e "/Library/Application Support/JAMF/Receipts/Install_macOS_High_Sierra-13.6.02-1.sig.pkg" ]
+then
+	rm -fR "/Applications/Install macOS High Sierra.app"
 fi
 
 osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
@@ -101,7 +106,7 @@ if [ $macOS_app_vers -ge 136 ]; then
 	else
     	echo "User present, starting osinstall"
         /Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
     
 else
@@ -110,7 +115,7 @@ else
 	rm -fR "/Applications/Install macOS High Sierra.app"
     
     # Add the installer
-    /usr/local/bin/jamf policy -event OS-Installer
+    /usr/local/bin/jamf policy -event OS-Installer-13
     
     # Delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd  
@@ -127,7 +132,7 @@ else
 	else
     	echo "User present, starting osinstall"
 		/Applications/Install\ macOS\ High\ Sierra.app/Contents/Resources/startosinstall --applicationpath /Applications/Install\ macOS\ High\ Sierra.app --nointeraction --agreetolicense --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
 fi
 
