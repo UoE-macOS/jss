@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.15 (Catalina)
 #
-# Date: Thu 31 Oct 2019 13:56:34 GMT
-# Version: 0.1.2
+# Date: Thu  6 Feb 2020 15:54:23 GMT
+# Version: 0.1.3
 # Creator: dsavage
 #
 ##################################################################
@@ -62,9 +62,9 @@ heading='           Preparing for macOS install           '
 
 description='Please wait as we prepare your computer for macOS Catalina...
 
-This process will take approximately 10-15 minutes.
+This may download the OS installer and take approximately 10-15 minutes.
 
-Once completed your computer will reboot and begin the install.'
+Once completed your computer will reboot and begin the OS install.'
 
 # Icon to be used for jamfHelper
 if [ -f /Applications/Install\ macOS\ Catalina.app/Contents/Resources/InstallAssistant.icns ]; then
@@ -120,7 +120,7 @@ if [ $macOS_app_vers -ge 154 ]; then
 	else
     	echo "User present, starting osinstall"
         /Applications/Install\ macOS\ Catalina.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
     
 else
@@ -129,7 +129,7 @@ else
 	rm -fR "/Applications/Install macOS Catalina.app"
     
     # Add the installer
-    /usr/local/bin/jamf policy -event OS-Installer
+    /usr/local/bin/jamf policy -event OS-Installer-15
     
     # Delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd      
@@ -143,7 +143,7 @@ else
 	else
     	echo "User present, starting osinstall"
 		/Applications/Install\ macOS\ Catalina.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
 fi
 
