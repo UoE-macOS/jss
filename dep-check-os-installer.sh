@@ -67,7 +67,7 @@ else
     if [ "$FREE_SPACE" -ge 25 ]; then
     	echo "Command: MainText: Setup has detected a newer Operating System is available than what is currently installed. The newer Operating System is now being downloaded in preparation for installation at a later date. This may take around 20 minutes."
         echo "Setup has detected a newer Operating System is available than what is currently installed. The newer Operating System is now being downloaded in preparation for installation at a later date. This may take around 20 minutes." | timestamp 2>&1 | tee -a $LOGFILE
-        /usr/local/bin/jamf policy -event OS-Installer
+        /usr/local/bin/jamf policy -event OS-Installer-15
     else
         echo "Not enough free disk space to continue." | timestamp 2>&1 | tee -a $LOGFILE
     fi	
