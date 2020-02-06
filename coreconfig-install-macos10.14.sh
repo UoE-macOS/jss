@@ -4,8 +4,8 @@
 #
 # Enable macOS re-install for Macs not on 10.14
 #
-# Date: Thu 31 Oct 2019 13:56:34 GMT
-# Version: 0.1.7
+# Date: Thu 6 Feb 2020 15:54:23 GMT
+# Version: 0.1.8
 # Creator: dsavage
 #
 ##################################################################
@@ -19,8 +19,13 @@
 
 if [ -e /macOS\ Install\ Data ]
 then
-# Install proces already underway
+# Install process already underway
 exit 0
+fi
+
+if ! [ -e "/Library/Application Support/JAMF/Receipts/Install_macOS_Mojave-14.6.06-1.sig.pkg" ]
+then
+	rm -fR "/Applications/Install macOS Mojave.app"
 fi
 
 osversion=`sw_vers -productVersion | awk -F . '{print $2}'`
@@ -120,7 +125,7 @@ if [ $macOS_app_vers -ge 145 ]; then
 	else
     	echo "User present, starting osinstall"
         /Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
     
 else
@@ -129,7 +134,7 @@ else
 	rm -fR "/Applications/Install macOS Mojave.app"
     
     # Add the installer
-    /usr/local/bin/jamf policy -event OS-Installer
+    /usr/local/bin/jamf policy -event OS-Installer-14
     
     # Delete the login banner as we are updating macOS
 	rm -fR /Library/Security/PolicyBanner.rtfd      
@@ -143,7 +148,7 @@ else
 	else
     	echo "User present, starting osinstall"
 		/Applications/Install\ macOS\ Mojave.app/Contents/Resources/startosinstall --nointeraction --agreetolicense --installpackage /Users/Shared/dist-${pkg_name}-${version}.pkg --pidtosignal $jamfHelperPID &
-		osascript -e 'tell application "Self Service" to quit'
+		killall "Self Service"
     fi
 fi
 
