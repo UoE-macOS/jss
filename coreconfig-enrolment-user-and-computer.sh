@@ -16,8 +16,8 @@
 #
 # Finally the policy to install our core-applications is called.
 #
-# Date: "Thu 23 May 2019 15:29:42 BST"
-# Version: 0.2.1
+# Date: "Thu  6 Feb 2020 15:46:43 GMT"
+# Version: 0.2.2
 # Origin: https://github.com/UoE-macOS/jss.git
 # Released by JSS User: dsavage
 #
@@ -36,6 +36,13 @@ EDLAN_DB="https://www.edlan-db.ucs.ed.ac.uk/webservice/pie.cfm"
 LOCK_FILE="/var/run/UoEQuickAddRunning"
 
 JSS_URL="$(defaults read /Library/Preferences/com.jamfsoftware.jamf.plist jss_url)"
+
+DEP_LOCK="/var/run/UoEDEPRunning"
+
+if [ -f "${DEP_LOCK}" ]; then
+	echo "***************** This Mac is a DEP enrolment exiting Quickad enrolment complete. *****************"
+	exit 0;
+fi
 
 check_jss_available() {
   # Can we see the JSS?
@@ -213,24 +220,6 @@ else
 fi
 }
 
-trigger_os_installer() {
-if [ $dialogue == "YES" ]; then
-	# Display this message but send the jamfhelper process into the background
-	# so that execution continues
-	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper\
- -windowType utility\
- -title 'UoE Mac Supported Desktop'\
- -heading 'Checking Core Applications'\
- -icon '/System/Library/CoreServices/Installer.app/Contents/Resources/Installer.icns'\
- -timeout 99999\
- -description "$(echo -e We are now putting the new macOS installer in-place.\\n\\nThis should take 20 to 30 minutes.\\n\\nYou will be able to launch the upgrade from Self Service once this installation is complete.\\n\\nPlease do not restart your computer.)" &
-	/usr/local/bin/jamf policy -event OS-Installer
-	killall jamfHelper
-else
-	/usr/local/bin/jamf policy -event OS-Installer
-fi
-}
-
 do_restart () {
 username=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
 
@@ -302,8 +291,10 @@ get_macaddr() {
 get_edlan_dnsname() {
   mac=$(get_macaddr)
   if ! [ -z ${mac} ]; then
-     #dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) *** Comment out to work with 10.13, pending edlan changes.
-     dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     dnsfull=$(curl --insecure "${EDLAN_DB}?MAC=${mac}&return=DNS" 2>/dev/null) # This won't work with 10.13, pending edlan changes.
+     if [ -z ${dnsfull} ]; then
+        dnsfull=`python -c "import urllib2, ssl;print urllib2.urlopen('${EDLAN_DB}?MAC=${mac}&return=DNS', context=ssl._create_unverified_context()).read()"`
+     fi
      # Remove anything potentially dodgy 
      dnsname=`echo ${dnsfull} | awk -F "." '{print $1}'`
      echo ${dnsname}
@@ -322,9 +313,14 @@ if [ $dialogue == "YES" ]; then
     ;;
     desktop)
       name=$(get_edlan_dnsname)
-      # If we don't get a name for some reason
-      # then just use the same scheme as for
-      # laptops.
+      # If we don't get a name for some reason, first try a dig.
+      if [ -z ${name} ]; then
+      	echo "*** Performing a dig to find DNS name, edlan lookup unsuccessful ***"
+      	ip_address=`ipconfig getifaddr en0`
+      	name=`dig +short -x ${ip_address} | awk -F '.' '{print $1}'`
+      fi
+      # Then just use the same scheme as for laptops.
+      echo "*** Failed to find DNS name from edlan or dig lookup ***"
       [ -z ${name} ] && name=${school}-$(get_serial)
     ;;
     *)
@@ -558,7 +554,9 @@ trigger_core_apps
 
 # Run any policies that are triggered by the 'OS-Installer' event  
 
-free_space=`diskutil info / | grep "Free Space" | awk '{print $4}' | awk -F "." '{print $1}'`
+# Check if free space > 15GB
+bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
+freeSpace=`df -g | grep "${Boot_Disk}" | awk '{print $4}'`
 
 if [ $osversion == "12" ] || [ $osversion == "13" ]; then
 	logger "$0: OS installer already in-place or OS on version 12 or 13."
