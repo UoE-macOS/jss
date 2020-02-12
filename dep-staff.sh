@@ -229,7 +229,7 @@ check_secure_token(){
 
 # Function to apply a secure token to an account
 apply_secure_token(){
-    # Set local varilables
+    # Set local variables
     local ACCOUNT=${1}
     local ACCOUNT_PASS=${2}
     local ADM_ACC=${3}
@@ -609,14 +609,14 @@ Please use Your University Login from now on to login to this device."
                                 -defaultButton 1
         echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE
     else
-        # Set flag that self setup is happening. This will make sure the prompt for applying the secure token for the local admin account appears.
+        # Set flag that self setup is not happening. This will make sure the prompt for applying the secure token for the local admin account appears.
         SELF_SETUP="FALSE"
         # Set the other user flag - this is required to grant a secure token
         OTHER_USER="TRUE"
         UUN=$(get_username)    
         USERNAME="$UUN"
-        # In some test cases, we've found that a '0' appends to the beginning of the acquired uun, so we need to remove any number which may attach itself
-        # to the beginning of the value.
+        # In some test cases, we've found that a '0' appends to the beginning of the acquired uun.
+        # So we need to remove any number which may attach itself to the beginning of the value.
         echo "Checking to make sure an integer hasn't made it's way to the start of the username..."| timestamp 2>&1 | tee -a $LOGFILE
         if [[ $USERNAME =~ ^[0-9] ]]; then
             echo "$USERNAME begins with an integer. Stripping it out..." | timestamp 2>&1 | tee -a $LOGFILE
@@ -627,6 +627,7 @@ Please use Your University Login from now on to login to this device."
         echo "Primary username will be $USERNAME" | timestamp 2>&1 | tee -a $LOGFILE        
     fi
     
+    # Display DEPNotify main message
     dep_notify_main_message
     
     # Get school code of primary user
@@ -642,13 +643,16 @@ Please use Your University Login from now on to login to this device."
     MOBILITY=$(get_mobility)
     
     # Beginning device specific config
+    # Change DEPNotify status message
     dep_notify_status "Beginning device specific configuration..."
+    # Perform some config tasks dpending on whether device is laptop or desktop
     case $MOBILITY in
         # If it's a laptop
     	mobile)
+            # Change DEPNotify status message
             echo "Status: Performing laptop configuration..." >> $DEP_NOTIFY_LOG
             echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG            
-  	  		# Create a local account
+  	  		# Create a local account. There shouldn't already be one, but perform a check to make sure.
   	  		echo "Is a laptop. Creating local account..." | timestamp 2>&1 | tee -a $LOGFILE
             if ! $(has_local_account "${USERNAME}"); then
                 echo "No local account for $USERNAME Found. Creating local account for $USERNAME..." | timestamp 2>&1 | tee -a $LOGFILE
@@ -667,13 +671,14 @@ Please use Your University Login from now on to login to this device."
     	;;
         # If it's a Desktop
     	desktop)
+            # Change DEPNotify status message
             echo "Status: Performing Desktop configuration..." >> $DEP_NOTIFY_LOG
             echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG 
             echo "Is a desktop." | timestamp 2>&1 | tee -a $LOGFILE
             # Switch wifi off, it's not needed
             echo "Switching off wifi..." | timestamp 2>&1 | tee -a $LOGFILE            
   	  		networksetup -setairportpower "$(networksetup -listallhardwareports | awk '/AirPort|Wi-Fi/{getline; print $NF}')" off
-            # Attempt to get dns name from EdLAN DB
+            # Attempt to get DNS name from EdLAN DB
             echo "Attempting to obtain name from EdLAN DB..." | timestamp 2>&1 | tee -a $LOGFILE
             NAME=$(get_edlan_dnsname)
             # If we get a name, then attempt a bind!
@@ -686,12 +691,12 @@ Please use Your University Login from now on to login to this device."
                 NAME=$(dig +short -x ${IP_ADDRESS} | awk -F '.' '{print $1}')
                 if [ "${NAME}" ]; then
                     set_desktop_name "${NAME}"
+                # Else we are still unable to get a DNS name.
                 else
                     # Send warning to log and just use the same naming scheme as for laptops.
                     echo "*** Failed to find DNS name from edlan or dig lookup ***" | timestamp 2>&1 | tee -a $LOGFILE
                     [ -z "${NAME}" ] && NAME=${SCHOOL}-$(get_serial)
                     set_computer_name "${NAME}"
-                    #sleep 60
                     # Display JAMF Helper warning                    
                     "$JAMF_HELPER" -windowType utility \
 								-title "WARNING!" \
@@ -712,7 +717,6 @@ Please contact IS Helpline if you require any more assistance - https://edin.ac/
                                 -defaultButton 1
                     # Change DEPNotify message to main message
                     dep_notify_main_message
-                    #echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
                 fi
             fi     		
     	;;
@@ -728,7 +732,7 @@ Please contact IS Helpline if you require any more assistance - https://edin.ac/
     # Create the local admin account
     dep_notify_status "Creating local admin account..."
     $JAMF_BINARY policy -event Check-Local-Admin
-     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
     
     # Install Core-Apps
     echo "Installing Core Applications. Check the following logs for more details :" | timestamp 2>&1 | tee -a $LOGFILE
