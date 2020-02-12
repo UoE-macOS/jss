@@ -1,5 +1,22 @@
 #!/bin/bash
 
+################################################################################
+# This is the main DEP enrolment script. It performs all configuration of the DEP process and does the following :
+#
+# - Sets local system configuration (enables SSH, Remote Desktop, sets TimeZone etc..).
+# - Starts the DEPNotify window.
+# - Requests primary user information.
+# - Acquires device type (Desktop or laptop) and sets configuration accordingly.
+# - Sets primary user in JSS and creates local IT admin account based on desktop computer name or laptop primary user.
+# - Install Core apps and device configuration.
+# - Depeding on scenario, will grant a secure token to the local IT admin account.
+#
+# This script is triggered using a LaunchDaemon which is installed at Pre-Stage :
+
+# https://github.com/UoE-macOS/jss/blob/master/dep-is.ed.launch.plist
+
+################################################################################
+
 # ======================== Set Globals ======================== #
 
 # LDAP
