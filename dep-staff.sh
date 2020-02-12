@@ -8,7 +8,7 @@
 # - Requests primary user information.
 # - Acquires device type (Desktop or laptop) and sets configuration accordingly.
 # - Sets primary user in JSS and creates local IT admin account based on desktop computer name or laptop primary user.
-# - Install Core apps and device configuration.
+# - Installs Core apps and device configuration.
 # - Depeding on scenario, will grant a secure token to the local IT admin account.
 #
 # This script is triggered using a LaunchDaemon which is installed at Pre-Stage :
