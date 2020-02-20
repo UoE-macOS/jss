@@ -42,10 +42,8 @@ fi
 bootDisk=`diskutil info / | grep "Device Node:" | awk '{print $3}'`
 freeSpace=`df -g | grep "${bootDisk}" | awk '{print $4}'`
 if [[ ${freeSpace%.*} -ge 15 ]]; then
-    spaceStatus="OK"
     /bin/echo "Disk Check: OK - ${freeSpace%.*} Free Space Detected"
 else
-    spaceStatus="ERROR"
     /bin/echo "Disk Check: ERROR - ${freeSpace%.*} Free Space Detected"
 
     # Trigger Yo notification on low disk space pointing users to https://edin.ac/mac-low-disk-space
