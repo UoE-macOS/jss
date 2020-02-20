@@ -698,8 +698,10 @@ Please use Your University Login from now on to login to this device."
             # Attempt to get DNS name from EdLAN DB
             echo "Attempting to obtain name from EdLAN DB..." | timestamp 2>&1 | tee -a $LOGFILE
             NAME=$(get_edlan_dnsname)
+            # Remove all whitespace - there shouldn't be any.
+            NAME="$(echo -e "${NAME}" | tr -d '[:space:]')"
             # If we get a name, then attempt a bind!
-            if [ "${NAME}" ]; then
+            if [ "${NAME}" ] && [ "$NAME" != "error" ]; then
                 echo "Obtained DNS name $NAME from EdLAN DB." | timestamp 2>&1 | tee -a $LOGFILE
                 set_desktop_name "${NAME}"                
             else            
