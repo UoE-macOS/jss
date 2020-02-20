@@ -4,9 +4,9 @@
 #
 # Enable macOS re-install for Macs not on 10.15 (Catalina)
 #
-# Date: Thu  6 Feb 2020 15:54:23 GMT
+# Date: Thu  20 Feb 2020 15:09:23 GMT
 # Version: 0.1.3
-# Creator: dsavage
+# Creator: ganders1
 #
 ##################################################################
 
@@ -42,6 +42,10 @@ if [[ ${freeSpace%.*} -ge 15 ]]; then
 else
     spaceStatus="ERROR"
     /bin/echo "Disk Check: ERROR - ${freeSpace%.*} Free Space Detected"
+
+    # Trigger Yo notification on low disk space pointing users to https://edin.ac/mac-low-disk-space
+    /usr/local/bin/jamf policy -event low-disk-space
+    exit 1;
 fi
 
 username=$( python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");' )
