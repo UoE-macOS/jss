@@ -173,14 +173,14 @@ set_desktop_name(){
 has_local_account() {
   	# Does a local account exist with ${UUN}
   	UUN=${1}
+    local ACCOUNT_EXISTS=""
   	if ACCT=$(dscl . -list /Users | grep "^${UUN}$")
   	then
-    	echo "Local Account for ${UUN} exists"
-    	true 
+    	ACCOUNT_EXISTS="TRUE"
   	else
-    	echo "Local Account for ${UUN} does not exist"
-    	false
+    	ACCOUNT_EXISTS="FALSE"
   	fi
+    echo "${ACCOUNT_EXISTS}"
 }
 
 # Validate username
@@ -671,7 +671,10 @@ Please use Your University Login from now on to login to this device."
             echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG            
   	  		# Create a local account. There shouldn't already be one, but perform a check to make sure.
   	  		echo "Is a laptop. Creating local account..." | timestamp 2>&1 | tee -a $LOGFILE
-            if ! $(has_local_account "${USERNAME}"); then
+            # Find out if account already exists
+            ACCOUNT_EXISTS=$(has_local_account "${USERNAME}")
+            # If it doesn't exist, then create it.
+            if [ "$ACCOUNT_EXISTS" == "FALSE" ]; then
                 echo "No local account for $USERNAME Found. Creating local account for $USERNAME..." | timestamp 2>&1 | tee -a $LOGFILE
                 $JAMF_BINARY createAccount -username "$USERNAME" -realname "$USERNAME" -password "$USERNAME"
                 NAME=${SCHOOL}-$(get_serial)
@@ -781,6 +784,9 @@ Please contact IS Helpline if you require any more assistance - https://edin.ac/
     dep_notify_status "Checking if a more recent major OS is available..."
     $JAMF_BINARY policy -event CheckOSInstallerDEP
     echo "Command: DeterminateManualStep:" >> $DEP_NOTIFY_LOG
+    
+    # Change DEPNotify main message back to the normal message. This changes if a newer OS needs to be dwonloaded.
+    echo "Command: MainText: $DEP_NOTIFY_MAIN_TEXT" >> $DEP_NOTIFY_LOG
        
     dep_notify_status "Updating inventory..."
     $JAMF_BINARY recon
