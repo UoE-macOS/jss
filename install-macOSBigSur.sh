@@ -355,7 +355,7 @@ Also, please make sure that your device is plugged in to a mains power outlet.
 
 This may take a while. Please be patient." &     
         echo "Running jamf trigger to download Big Sur." | timestamp 2>&1 | tee -a $LOGFILE
-        # "$JAMF_BINARY" policy -event upgrade-to-BigSur
+        "$JAMF_BINARY" policy -event upgrade-to-BigSur
         # Get exit status of last command
         POLICY_STATUS=$?
         echo "Download complete. Preparing Big Sur install..." | timestamp 2>&1 | tee -a $LOGFILE
