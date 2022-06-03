@@ -6,7 +6,7 @@
 #*********** GLOBAL VARIABLES ***********
 
 # Log file location
-LOGFILE="/Library/Logs/macOSBigSur-eraseInstall.log"
+LOGFILE="/Library/Logs/macOSCatalina-eraseInstall.log"
 
 # Jamf binary location
 JAMF_BINARY="/usr/local/jamf/bin/jamf"
@@ -14,12 +14,12 @@ JAMF_BINARY="/usr/local/jamf/bin/jamf"
 JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 
 # BigSur icon
-BIGSUR_ICON="/usr/local/jamf/BigSurInstallAssistant.png"
+CATALINA_ICON="/usr/local/jamf/CatalinaInstallAssistant.png"
 
 # Jamf helper title
-JH_TITLE="macOS Big Sur Upgrade"
+JH_TITLE="macOS Catalina erase and install"
 # Jamf helper initial description
-JH_DESCRIPTION="Checking your device meets the minimum requirements for running Big Sur..."
+JH_DESCRIPTION="Checking your device meets the minimum requirements for running Catalina..."
 # Error icon location
 ERROR_ICON="/usr/local/jamf/Error.png"
 # Warning icon
@@ -96,7 +96,7 @@ jamf_helper_two_buttons () {
 
 echo "Displaying initial jamf helper window." | timestamp 2>&1 | tee -a $LOGFILE
 # Display initial jamf helper window
-"$JAMF_HELPER" -windowType utility -title "$JH_TITLE" -icon "$BIGSUR_ICON" -heading "$JH_HEADING" -description "$JH_DESCRIPTION" &
+"$JAMF_HELPER" -windowType utility -title "$JH_TITLE" -icon "$CATALINA_ICON" -heading "$JH_HEADING" -description "$JH_DESCRIPTION" &
 # Wait a few seconds
 sleep 5s
 # Get build version
@@ -107,20 +107,20 @@ COMPATIBILITY="False"
 # Global for MINIMUM_MODEL
 MINIMUM_MODEL=""
 
-# We can't perform an erase install on a device that's currently running something higher then Big Sur
-if [[ "OS_VERSION_MAJOR" -ge 21 ]]; then
-    echo "Device appears to be running macOS 12 or higher. An erase and install caanot be run for Big Sur. This is an Apple restriction. Quitting..." | timestamp 2>&1 | tee -a $LOGFILE
+# We can't run eraseinstall on a device that's currently running a higher OS than Catalina
+if [[ "$OS_VERSION_MAJOR" -ge 20 ]]; then
+	echo "Device appears to be running macOS 11 or higher. An erase and install caanot be run for Catalina. This is an Apple restriction. Quitting..." | timestamp 2>&1 | tee -a $LOGFILE
     # Kill initial jamf helper window
 	killall jamfHelper 2> /dev/null
 	# Display error message
-    jamf_helper_one_button "$JH_TITLE" "$ERROR_ICON" "Failed!" "This process cannot continue. Your device already appears to be running macOS 12 (Monterey) or above. Installing macOS 11 (Big Sur) would be a downgrade." "Cancel"
+    jamf_helper_one_button "$JH_TITLE" "$ERROR_ICON" "Failed!" "This process cannot continue. Your device already appears to be running macOS 11 (Big Sur) or above. Installing macOS 10.15 (Catalina) would be a downgrade." "Cancel"
 	# Make sure all instances of jamf helper are closed
 	killall jamfHelper 2> /dev/null
     exit 0;
 # If we are running High Sierra or higher
 elif [[ "$OS_VERSION_MAJOR" -ge 17 ]]; then
-	# For Sierra and higher required space is 12.3GB for the installer and 35.5GB for required disk space for installation which equals to 47.8GB, 50GB is giving a bit of extra free space for safety
-	echo "Device running macOS 10.14 or higher." | timestamp 2>&1 | tee -a $LOGFILE
+    # For Sierra and higher required space is 12.3GB for the installer and 35.5GB for required disk space for installation which equals to 47.8GB, 50GB is giving a bit of extra free space for safety
+	echo "Device running macOS 10.14 or higher." | timestamp 2>&1 | tee -a $LOGFILE    
 # Else we are running 10.12 or below
 else
 	echo "Device running a pre-10.12 macOS. Cannot use startosinstall --eraseinstall. Quitting..." | timestamp 2>&1 | tee -a $LOGFILE
@@ -175,19 +175,19 @@ MODEL_VERSION=$(echo "$MODEL_IDENTIFIER" | sed -e 's/[^0-9,]//g' -e 's/,//')
     
 # Get the model of mac, and set the name of the minimum model required for upgrade
 if [[ "$MODEL_NAME" == "iMac" ]]; then
-    MINIMUM_MODEL="iMac (2014 or later)"        
+    MINIMUM_MODEL="iMac (Late 2012 or newer)"        
 elif [[ "$MODEL_NAME" == "iMacPro" ]]; then
     MINIMUM_MODEL="iMac Pro (2017 or later)"
 elif [[ "$MODEL_NAME" == "Macmini" ]]; then
-	MINIMUM_MODEL="Mac mini (2014 or later)"
+	MINIMUM_MODEL="Mac mini (Late 2012 or newer)"
 elif [[ "$MODEL_NAME" == "MacPro" ]]; then
-	MINIMUM_MODEL="Mac Pro (2013 or later)"
+	MINIMUM_MODEL="Mac Pro (Late 2013 or newer)"
 elif [[ "$MODEL_NAME" == "MacBook" ]]; then
-	MINIMUM_MODEL="MacBook (2015 or later)"
+	MINIMUM_MODEL="MacBook (Early 2015 or newer)"
 elif [[ "$MODEL_NAME" == "MacBookAir" ]]; then
-	MINIMUM_MODEL="MacBook Air (2013 or later)"
+	MINIMUM_MODEL="MacBook Air (Mid 2012 or newer)"
 elif [[ "$MODEL_NAME" == "MacBookPro" ]]; then 
-	MINIMUM_MODEL="MacBook Pro (Late 2013 or later)"
+	MINIMUM_MODEL="MacBook Pro (Mid 2012 or newer)"
 else
     # If we can't get a model then quit.
     echo "Cannot detect model." | timestamp 2>&1 | tee -a $LOGFILE
@@ -206,25 +206,25 @@ This process will now quit." "Quit"
 fi
     
 # Checks if computer meets pre-requisites for Big Sur
-if [[ "$MODEL_NAME" == "iMac" && "$MODEL_VERSION" -ge 144 ]]; then
+if [[ "$MODEL_NAME" == "iMac" && "$MODEL_VERSION" -ge 131 ]]; then
     COMPATIBILITY="True"
     echo "Device is an iMac and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
 elif [[ "$MODEL_NAME" == "iMacPro" && "$MODEL_VERSION" -ge 10 ]]; then
 	COMPATIBILITY="True"		
     echo "Device is an iMacPro and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
-elif [[ "$MODEL_NAME" == "Macmini" && "$MODEL_VERSION" -ge 70 ]]; then
+elif [[ "$MODEL_NAME" == "Macmini" && "$MODEL_VERSION" -ge 61 ]]; then
     COMPATIBILITY="True"		
     echo "Device is a Macmini and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
-elif [[ "$MODEL_NAME" == "MacPro" && "$MODEL_VERSION" -ge 60 ]]; then
+elif [[ "$MODEL_NAME" == "MacPro" && "$MODEL_VERSION" -ge 51 ]]; then
     COMPATIBILITY="True"
     echo "Device is a MacPro and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
 elif [[ "$MODEL_NAME" == "MacBook" && "$MODEL_VERSION" -ge 80 ]]; then
     COMPATIBILITY="True"
     echo "Device is a MacBook and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
-elif [[ "$MODEL_NAME" == "MacBookAir" && "$MODEL_VERSION" -ge 60 ]]; then
+elif [[ "$MODEL_NAME" == "MacBookAir" && "$MODEL_VERSION" -ge 52 ]]; then
     COMPATIBILITY="True"
     echo "Device is a MacBook Air and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
-elif [[ "$MODEL_NAME" == "MacBookPro" && "$MODEL_VERSION" -ge 110 ]]; then
+elif [[ "$MODEL_NAME" == "MacBookPro" && "$MODEL_VERSION" -ge 102 ]]; then
     COMPATIBILITY="True"
     echo "Device is a MacBook Pro and appears to be compatible. Moving on..." | timestamp 2>&1 | tee -a $LOGFILE
 else
@@ -233,7 +233,7 @@ else
 	# Kill initial jamf helper window
 	killall jamfHelper 2> /dev/null
     # If conditions above have not been met then most likely not compatible. Display error message.
-    jamf_helper_one_button "$JH_TITLE" "$ERROR_ICON" "Cannot install!" "This process cannot complete due to your model of Mac not meeting Apple's minimum requirement for macOS Big Sur:
+    jamf_helper_one_button "$JH_TITLE" "$ERROR_ICON" "Cannot install!" "This process cannot complete due to your model of Mac not meeting Apple's minimum requirement for macOS Catalina
 		
 Minimum model required: $MINIMUM_MODEL
 
@@ -250,7 +250,7 @@ if [[ "$COMPATIBILITY" == "True" ]]; then
 	# Kill initial jamf helper window
 	killall jamfHelper 2> /dev/null
 	# Display confirmation jamf helper window
-    BUTTON_CLICKED=$(jamf_helper_two_buttons "$JH_TITLE" "$BIGSUR_ICON" "Installing Big Sur" "The Big Sur installer will now download to your Applications folder and then the process will begin.
+    BUTTON_CLICKED=$(jamf_helper_two_buttons "$JH_TITLE" "$CATALINA_ICON" "Installing Catalina" "The Catalina installer will now download to your Applications folder and then the process will begin.
 
 IMPORTANT - Please make sure that you have backed up all of your data, as this Hard Drive will be wiped and any data currently on the Hard Drive will not be recoverable after this process is complete!
 	
@@ -270,7 +270,7 @@ Do you wish to continue?" "Continue" "Cancel" "2")
 	else
 		echo "User has continued with the process. Showing jamf helper download window." | timestamp 2>&1 | tee -a $LOGFILE
 		# Kill current jamf helper window
-        jamf_helper_no_buttons "$JH_TITLE" "$BIGSUR_ICON" "Downloading Big Sur" "Downloading the Big Sur installer.
+        jamf_helper_no_buttons "$JH_TITLE" "$CATALINA_ICON" "Downloading Catalina" "Downloading the Catalina installer.
         
 This window will close when the erase & install process starts and the computer restarts.
 
@@ -280,7 +280,7 @@ Also, please make sure that your device is plugged in to a mains power outlet.
 
 This may take a while. Please be patient." &
 		    
-        echo "Running jamf trigger to download Big Sur." | timestamp 2>&1 | tee -a $LOGFILE
+        echo "Running jamf trigger to download Catalina." | timestamp 2>&1 | tee -a $LOGFILE
         # Check if it's M1. If so, at the moment we can't go ahead with this.
         if [ $(arch) == arm64 ]; then
             echo "This is an M1 Mac. This process has not been implemented for this type of device yet. Quitting process." | timestamp 2>&1 | tee -a $LOGFILE
@@ -294,14 +294,14 @@ This process will now quit." "Quit"
         else
             echo "Not an M1 Mac." | timestamp 2>&1 | tee -a $LOGFILE
             echo "Running erase & install Trigger trigger to download and run"
-            "$JAMF_BINARY" policy -event eraseInstall-BigSur
+            "$JAMF_BINARY" policy -event eraseInstall-Catalina
             # Get exit status of last command
             POLICY_STATUS=$?
-            echo "Download complete. Preparing Big Sur install..." | timestamp 2>&1 | tee -a $LOGFILE
+            echo "Download complete. Preparing Catalina install..." | timestamp 2>&1 | tee -a $LOGFILE
             # Kill current jamf helper window
             killall jamfHelper 2> /dev/null
             # Display jamf helper download window
-            jamf_helper_no_buttons "Installing macOS Big Sur" "$BIGSUR_ICON" "Installing macOS Big Sur" "Download is now complete. Preparing Big Sur install...
+            jamf_helper_no_buttons "Installing macOS Catalina" "$CATALINA_ICON" "Installing macOS Catalina" "Download is now complete. Preparing Catalina install...
 
 Warning: This process will restart the computer without notification. Please save your data NOW.
 
