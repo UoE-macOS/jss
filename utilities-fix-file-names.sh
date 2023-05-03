@@ -64,7 +64,7 @@ if [ "$lastChar" == " " ] || [ "$lastChar" == "." ]
 then
 name=`basename "$line"` # get the filename we need to change
 path=`dirname "$line"` # dirname to get the path
-fixedname=$(echo "$name" | tr '.' '-' | awk '{sub(/[ \t]+$/, "")};1') # remove/replace the trailing whitespace or period
+fixedname=$(echo "$name" | awk '{sub(/[ \t]+$/, "")};1') # remove/replace the trailing whitespace or period
 
 mv -f "$line" "$path/$fixedname" # rename the file or folder
 
@@ -86,7 +86,7 @@ while ! [ "$counter" == 0 ]; do
 line="`sed -n ${counter}p /tmp/fixlead.ffn`"
 name=`basename "$line"` # get the filename we need to change
 path=`dirname "$line"` # dirname to get the path
-fixedname=`echo $name | sed -e 's/^[ \t]*//'` # sed out the leading whitespace
+fixedname=`echo $name | sed -e 's/^[ \t]//'` # sed out the leading whitespace
 echo "This is the original - $line"
 echo "This is the fix - $path/$fixedname"
 mv -f "$line" "$path/$fixedname" # rename the file or folder
