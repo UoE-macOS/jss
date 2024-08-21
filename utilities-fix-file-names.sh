@@ -7,8 +7,8 @@
 # overlong path names and to correct them to help allow smooth
 # synching in OneDrive.
 #
-# Date: Thu 27 Feb 2018 10:00:33 BST
-# Version: 0.1.3
+# Date: Thu 20 Jul 2023 10:44:56 BST
+# Version: 0.1.4
 # Creator: dsavage
 #
 ##################################################################
@@ -17,13 +17,13 @@
 rm /tmp/*.ffn
 
 # Get the user
-uun=`python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");'`
+uun=$( echo "show State:/Users/ConsoleUser" | scutil | awk '/Name :/ && ! /loginwindow/ { print $3 }' )
 
 # Remove local fstemps so they won't clog the server
 find /Users/$uun -name ".fstemp*" -exec rm -dfR '{}' \;
 
 # Find the OneDrive folder location assuming it has OneDrive in the name...
-onedrive=`find /Users/$uun -type d -name "OneDrive*" -not -path "*/Library*" -not -path "*/Music*" -not -path "*/Pictures*" -not -path "*/Downloads*" -not -path "*.pkg" -not -path ".Trash"`
+onedrive=$( find /Users/$uun/Library/CloudStorage -type d -name "OneDrive*" )
 
 Check_Long_Names ()
 {
@@ -200,36 +200,19 @@ EOF
 }
 
 
-BrokeFiles=`grep $uun /tmp/fixfname.ffn`
-BrokeDirs=`grep $uun /tmp/fixdname.ffn`
-Broke1Files=`grep $uun /tmp/fix1fname.ffn`
-Broke1Dirs=`grep $uun /tmp/fix1dname.ffn`
+BrokeFiles=`grep $uun /private/tmp/acln.ffn`
 
 
-if ! [ -z "$BrokeFiles" ] || ! [ -z "$Broke1Files" ]
-then
-var1="true"
-else
-var1="false"
-fi
-if ! [ -z "$BrokeDirs" ] || ! [ -z "$Broke1Dirs" ]
-then
-var2="true"
-else
-var2="false"
-fi
-if ! [ -z "$testlong" ]
-then
-var3="true"
-else
-var3="false"
-fi
 
-if [ "$var1" == "true" ] || [ "$var2" == "true" ] || [ "$var3" == "true" ]
+if [ -z "$BrokeFiles" ]
 then
+echo "No broken files found"
+else
+echo "Broken files found, do message"
 #call the mail function
 Send_Message
 fi
+
 
 # cleanup
 #rm /tmp/*.ffn
